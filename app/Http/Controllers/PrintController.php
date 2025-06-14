@@ -354,6 +354,61 @@ class PrintController extends Controller
         $nuevo_consecutivo = ($consecutivo_base + $cantidad >= 800000) ? 1 : ($consecutivo_base + $cantidad);
         DB::table('modelo')->where('id', $modelo->id)->update(['consecutivo' => $nuevo_consecutivo]);
 
+        if (!$this->imprimirEtiqueta($impresora, $etiquetas)) {
+            return response()->json([
+                'code' => 500,
+                'message' => 'Ocurrió un error al imprimir una o más etiquetas.'
+            ]);
+        }
+
+        return response()->json([$output]);
+    }
+
+    public function imprimirBusqueda(Request $request): JsonResponse
+    {
+        $data = json_decode($request->input('data'));
+
+        if (!isset($data->serie, $data->codigo, $data->descripcion)) {
+            return response()->json([
+                'code' => 400,
+                'message' => 'Faltan datos requeridos: serie, codigo o descripcion.'
+            ]);
+        }
+
+        $impresora = DB::table('impresora')->where('id', 1)->first();
+        if (!$impresora) {
+            return response()->json([
+                'code' => 500,
+                'message' => 'No se encontró la impresora configurada.'
+            ]);
+        }
+
+        $etiqueta = (object)[
+            'serie' => $data->serie,
+            'codigo' => $data->codigo,
+            'descripcion' => $data->descripcion,
+            'cantidad' => 1,
+            'extra' => property_exists($data, 'extra') ? $data->extra : ''
+        ];
+
+        $impresion = $this->imprimirEtiqueta($impresora, [$etiqueta]);
+
+        if (!$impresion) {
+            return response()->json([
+                'code' => 500,
+                'message' => 'No se pudo imprimir la etiqueta.'
+            ]);
+        }
+
+        return response()->json([
+            'code' => 200,
+            'message' => 'Etiqueta impresa correctamente',
+            'serie' => $etiqueta->serie
+        ]);
+    }
+
+    private function imprimirEtiqueta($impresora, $etiquetas): bool|string
+    {
         foreach ($etiquetas as $etiqueta) {
             try {
                 $command = 'python python/label/' . $impresora->tamanio . '/sku_description_serie.py ' .
@@ -372,19 +427,16 @@ class PrintController extends Controller
 
                 fwrite($socket, $output);
                 fclose($socket);
-
             } catch (Exception $e) {
                 ErrorLoggerService::logger(
                     'Error en etiquetas. Impresora: ' . $impresora->ip,
                     'PrintController',
                     ['exception' => $e->getMessage(), 'line' => self::logLocation()]
                 );
-                return response()->json([
-                    'Error' => 'No se pudo imprimir: ' . $e->getMessage()
-                ], 500);
+                return false;
             }
         }
-        return response()->json([$output]);
+        return true;
     }
 
 }
