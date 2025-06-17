@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\DropboxService;
 use App\Services\ErrorLoggerService;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -480,20 +481,20 @@ class PrintController extends Controller
         $extension = 'pdf';
 
         if ($archivos->isNotEmpty()) {
+            $dropboxService = new DropboxService();
             foreach ($archivos as $archivo) {
-                $dropboxResp = \Httpful\Request::post(config('endpoint.dropbox') . '2/files/download')
-                    ->addHeader('Authorization', 'Bearer ' . config('keys.dropbox'))
-                    ->addHeader('Dropbox-API-Arg', '{ "path": "' . $archivo->dropbox . '"}')
-                    ->send();
+                $resp = $dropboxService->downloadFile($archivo->dropbox);
 
-                if ($dropboxResp->code !== 200) {
+                if (empty($resp['success'])) {
                     return response()->json([
                         'code' => 500,
-                        'message' => 'Error al obtener archivo: ' . $archivo->nombre,
+                        'message' => 'Error al obtener archivo: ' . $archivo->nombre .
+                            (isset($resp['message']) ? ' - ' . $resp['message'] : ''),
+                        'error' => $resp,
                     ]);
                 }
 
-                $archivosImpresion[] = base64_encode($dropboxResp->body);
+                $archivosImpresion[] = base64_encode($resp['content']);
 
                 if (str_ends_with($archivo->nombre, '.zpl')) {
                     $extension = 'zpl';

@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'dropbox' => [
+        'client_id' => env('DROPBOX_CLIENT_ID'),
+        'client_secret' => env('DROPBOX_CLIENT_SECRET'),
+        'refresh_token' => env('DROPBOX_REFRESH_TOKEN'),
+        'token' => env('DROPBOX_TOKEN'),
+    ],
+
 ];
