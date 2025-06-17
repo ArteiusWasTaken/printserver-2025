@@ -387,4 +387,123 @@ class PrintController extends Controller
         return response()->json([$output]);
     }
 
+    public function print($documentoId, $impresoraNombre, Request $request): JsonResponse
+    {
+        $documento = DB::table('documento')
+            ->join('paqueteria', 'documento.id_paqueteria', '=', 'paqueteria.id')
+            ->where('documento.id', $documentoId)
+            ->where('documento.status', 1)
+            ->select('documento.*', 'paqueteria.paqueteria', 'paqueteria.guia')
+            ->first();
+
+        if (!$documento) {
+            return response()->json([
+                'code' => 500,
+                'message' => 'Documento no encontrado: ' . self::logLocation()
+            ]);
+        }
+
+        $marketplace = DB::table('marketplace_area')
+            ->join('documento', 'documento.id_marketplace_area', '=', 'marketplace_area.id')
+            ->join('marketplace', 'marketplace_area.id_marketplace', '=', 'marketplace.id')
+            ->leftJoin('marketplace_api', 'marketplace_area.id', '=', 'marketplace_api.id_marketplace_area')
+            ->where('documento.id', $documentoId)
+            ->select('marketplace.*', 'marketplace_api.guia')
+            ->first();
+
+        if (!$marketplace) {
+            return response()->json([
+                'code' => 500,
+                'message' => 'No se encontró el marketplace del documento: ' . self::logLocation()
+            ]);
+        }
+
+        $archivos = DB::table('documento_archivo')
+            ->where('id_documento', $documentoId)
+            ->where('status', 1)
+            ->where('tipo', 2)
+            ->get();
+
+        $archivosImpresion = [];
+        $extension = 'pdf';
+
+        if ($archivos->isNotEmpty()) {
+            foreach ($archivos as $archivo) {
+                $dropboxResp = \Httpful\Request::post(config('endpoint.dropbox') . '2/files/download')
+                    ->addHeader('Authorization', 'Bearer ' . config('keys.dropbox'))
+                    ->addHeader('Dropbox-API-Arg', '{ "path": "' . $archivo->dropbox . '"}')
+                    ->send();
+
+                if ($dropboxResp->code !== 200) {
+                    return response()->json([
+                        'code' => 500,
+                        'message' => 'Error al obtener archivo: ' . $archivo->nombre,
+                    ]);
+                }
+
+                $archivosImpresion[] = base64_encode($dropboxResp->body);
+
+                if (str_ends_with($archivo->nombre, '.zpl')) {
+                    $extension = 'zpl';
+                }
+            }
+        } elseif ($marketplace->guia) {
+            $url = "http://afa.spaxium.com:16227/logistica/envio/pendiente/documento/{$documentoId}/{$documento->id_marketplace_area}/1?token=" .$request->get('token');
+
+            $response = json_decode(file_get_contents($url));
+
+            if (!$response || $response->code !== 200) {
+                return response()->json([
+                    'code' => $response->code ?? 500,
+                    'message' => $response->message ?? 'Error desconocido al obtener la guía',
+                ]);
+            }
+
+            $archivosImpresion[] = $response->file;
+
+            $extension = match ($marketplace->marketplace) {
+                'MERCADOLIBRE' => 'zpl',
+                default => 'pdf',
+            };
+        }
+
+        if (empty($archivosImpresion)) {
+            return response()->json([
+                'code' => 500,
+                'message' => 'No se encontraron archivos de guía para imprimir.',
+            ]);
+        }
+
+        $outputs = [];
+        foreach ($archivosImpresion as $contenido) {
+            $nombreArchivo = "python/label/" . uniqid() . '.' . $extension;
+            file_put_contents($nombreArchivo, base64_decode($contenido));
+            chmod($nombreArchivo, 0777);
+
+            if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
+                $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
+                $output = trim(shell_exec("python3 python/label/convert/{$pythonScript} '{$nombreArchivo}' '{$documento->zoom_guia}' 2>&1"));
+                $archivoFinal = $output;
+            } else {
+                $archivoFinal = $nombreArchivo;
+            }
+
+            // Enviar a la impresora usando lp (local), puedes adaptar con fsockopen si es red
+            $modo = ($extension === 'zpl' || $marketplace->marketplace === 'MERCADOLIBRE') ? '-o raw' : '';
+            exec("lp -d {$impresoraNombre} -n 1 {$modo} {$archivoFinal}");
+
+            $outputs[] = $archivoFinal;
+
+            if (file_exists($archivoFinal)) unlink($archivoFinal);
+            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
+        }
+
+        return response()->json([
+            'code' => 200,
+            'message' => 'Guías enviadas a impresión.',
+            'outputs' => $outputs,
+        ]);
+    }
+
+
 }
