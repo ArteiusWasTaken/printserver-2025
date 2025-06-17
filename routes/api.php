@@ -15,6 +15,7 @@ Route::group(['middleware' => [JwtMiddleware::class]], function () {
 
         Route::post('/', [PrintController::class, 'etiquetas']);
         Route::post('/serie', [PrintController::class, 'etiquetasSerie']);
+        Route::post('/busqueda', [PrintController::class, 'imprimirBusqueda']);
     });
 
     Route::group(['prefix' => 'tickets'], function () {
