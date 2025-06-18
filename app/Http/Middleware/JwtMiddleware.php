@@ -26,11 +26,11 @@ class JwtMiddleware
             $payload = JWTAuth::parseToken()->getPayload();
             $request->auth = $payload->get('sub');
         } catch (TokenExpiredException $e) {
-            return response()->json(['message' => 'Token has expired'], 401);
+            return response()->json(['message' => 'Token has expired ' . $e->getMessage()], 401);
         } catch (TokenInvalidException $e) {
-            return response()->json(['message' => 'Invalid token'], 401);
+            return response()->json(['message' => 'Invalid token ' . $e->getMessage()], 401);
         } catch (JWTException $e) {
-            return response()->json(['message' => 'Token not provided'], 401);
+            return response()->json(['message' => 'Token not provided ' . $e->getMessage()], 401);
         }
 
         return $next($request);

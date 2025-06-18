@@ -1,20 +1,30 @@
-<?php /** @noinspection PhpComposerExtensionStubsInspection */
+<?php
 
 namespace App\Http\Controllers;
 
 use App\Services\DropboxService;
 use Exception;
+use Illuminate\Http\JsonResponse;
 
+/**
+ *
+ */
 class DropboxController extends Controller
 {
-    protected $dropbox;
+    protected DropboxService $dropbox;
 
+    /**
+     * @param DropboxService $dropbox
+     */
     public function __construct(DropboxService $dropbox)
     {
         $this->dropbox = $dropbox;
     }
 
-    public function actualizarTokenDropbox()
+    /**
+     * @return JsonResponse
+     */
+    public function actualizarTokenDropbox(): JsonResponse
     {
         set_time_limit(0);
         $dropbox = new DropboxService();
@@ -27,6 +37,9 @@ class DropboxController extends Controller
         }
     }
 
+    /**
+     * @return string
+     */
     private static function logVariableLocation(): string
     {
         $sis = 'BE'; //Front o Back

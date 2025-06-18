@@ -2,11 +2,15 @@
 
 namespace App\Services;
 
+use Exception;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Config;
 
+/**
+ *
+ */
 class DropboxService
 {
     protected string $clientId;
@@ -26,6 +30,8 @@ class DropboxService
 
     /**
      * Renueva el access token de Dropbox y lo guarda en DROPBOX_TOKEN del .env
+     * @throws GuzzleException
+     * @throws Exception
      */
     public function refreshAccessToken(): string
     {
@@ -52,7 +58,7 @@ class DropboxService
             return $data['access_token'];
         }
 
-        throw new \Exception('No se pudo renovar el access token de Dropbox');
+        throw new Exception('No se pudo renovar el access token de Dropbox');
     }
 
     /**
@@ -63,10 +69,10 @@ class DropboxService
         $envPath = base_path('.env');
         $env = File::get($envPath);
 
-        if (preg_match("/^DROPBOX_TOKEN=.*$/m", $env)) {
-            $env = preg_replace("/^DROPBOX_TOKEN=.*$/m", "DROPBOX_TOKEN={$value}", $env);
+        if (preg_match('/^DROPBOX_TOKEN=.*$/m', $env)) {
+            $env = preg_replace('/^DROPBOX_TOKEN=.*$/m', "DROPBOX_TOKEN=$value", $env);
         } else {
-            $env .= "\nDROPBOX_TOKEN={$value}";
+            $env .= "\nDROPBOX_TOKEN=$value";
         }
 
         File::put($envPath, $env);
@@ -117,15 +123,24 @@ class DropboxService
                     'message' => $mensaje,
                 ];
             }
-        } catch (\Exception $e) {
-            Log::error('Dropbox downloadFile error: ' . $e->getMessage());
+        } catch (Exception $e) {
+            Log::error('Dropbox downloadFile error: ' . $e->getMessage() . self::logVariableLocation());
             return [
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $e->getMessage() . self::logVariableLocation(),
+            ];
+        } catch (GuzzleException $e) {
+            Log::error('Dropbox downloadFile error: ' . $e->getMessage() . self::logVariableLocation());
+            return [
+                'success' => false,
+                'message' => $e->getMessage() . self::logVariableLocation(),
             ];
         }
     }
 
+    /**
+     * @return string
+     */
     public static function logVariableLocation(): string
     {
         $sis = 'BE'; // Front o Back
