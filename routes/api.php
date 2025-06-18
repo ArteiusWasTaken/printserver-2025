@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DropboxController;
 use App\Http\Controllers\PrintController;
 use App\Http\Middleware\JwtMiddleware;
 use Illuminate\Support\Facades\Route;
@@ -8,6 +9,8 @@ use Illuminate\Support\Facades\Route;
 Route::group(['prefix' => 'dev'], function () {
     Route::get('usb/{barcode}', [PrintController::class, 'ticketsUsb']);
 });
+
+Route::get('dropbox/actualizarToken', [DropboxController::class, 'actualizarTokenDropbox']);
 
 Route::group(['middleware' => [JwtMiddleware::class]], function () {
     Route::group(['prefix' => 'etiquetas'], function () {
