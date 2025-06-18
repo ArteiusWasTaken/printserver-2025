@@ -365,6 +365,38 @@ class PrintController extends Controller
         return response()->json([$output]);
     }
 
+    private function imprimirEtiqueta($impresora, $etiquetas): bool|string
+    {
+        foreach ($etiquetas as $etiqueta) {
+            try {
+                $command = 'python python/label/' . $impresora->tamanio . '/sku_description_serie.py ' .
+                    escapeshellarg($etiqueta->codigo) . ' ' .
+                    escapeshellarg($etiqueta->descripcion) . ' ' .
+                    escapeshellarg($etiqueta->serie) . ' ' .
+                    escapeshellarg($etiqueta->cantidad) . ' ' .
+                    escapeshellarg($etiqueta->extra) . ' 2>&1';
+
+                $output = trim(shell_exec($command));
+
+                $socket = fsockopen($impresora->ip, 9100, $errno, $errstr, 5);
+                if (!$socket) {
+                    throw new Exception("No se pudo conectar a la impresora: $errstr ($errno)");
+                }
+
+                fwrite($socket, $output);
+                fclose($socket);
+            } catch (Exception $e) {
+                ErrorLoggerService::logger(
+                    'Error en etiquetas. Impresora: ' . $impresora->ip,
+                    'PrintController',
+                    ['exception' => $e->getMessage(), 'line' => self::logLocation()]
+                );
+                return false;
+            }
+        }
+        return true;
+    }
+
     public function imprimirBusqueda(Request $request): JsonResponse
     {
         $data = json_decode($request->input('data'));
@@ -406,38 +438,6 @@ class PrintController extends Controller
             'message' => 'Etiqueta impresa correctamente',
             'serie' => $etiqueta->serie
         ]);
-    }
-
-    private function imprimirEtiqueta($impresora, $etiquetas): bool|string
-    {
-        foreach ($etiquetas as $etiqueta) {
-            try {
-                $command = 'python python/label/' . $impresora->tamanio . '/sku_description_serie.py ' .
-                    escapeshellarg($etiqueta->codigo) . ' ' .
-                    escapeshellarg($etiqueta->descripcion) . ' ' .
-                    escapeshellarg($etiqueta->serie) . ' ' .
-                    escapeshellarg($etiqueta->cantidad) . ' ' .
-                    escapeshellarg($etiqueta->extra) . ' 2>&1';
-
-                $output = trim(shell_exec($command));
-
-                $socket = fsockopen($impresora->ip, 9100, $errno, $errstr, 5);
-                if (!$socket) {
-                    throw new Exception("No se pudo conectar a la impresora: $errstr ($errno)");
-                }
-
-                fwrite($socket, $output);
-                fclose($socket);
-            } catch (Exception $e) {
-                ErrorLoggerService::logger(
-                    'Error en etiquetas. Impresora: ' . $impresora->ip,
-                    'PrintController',
-                    ['exception' => $e->getMessage(), 'line' => self::logLocation()]
-                );
-                return false;
-            }
-        }
-        return true;
     }
 
     public function print($documentoId, $impresoraNombre, Request $request): JsonResponse
@@ -501,7 +501,7 @@ class PrintController extends Controller
                 }
             }
         } elseif ($marketplace->guia) {
-            $url = "http://afa.spaxium.com:16227/logistica/envio/pendiente/documento/{$documentoId}/{$documento->id_marketplace_area}/1?token=" .$request->get('token');
+            $url = "http://afa.spaxium.com:16227/logistica/envio/pendiente/documento/{$documentoId}/{$documento->id_marketplace_area}/1?token=" . $request->get('token');
 
             $response = json_decode(file_get_contents($url));
 
@@ -527,6 +527,13 @@ class PrintController extends Controller
             ]);
         }
 
+        $impresora = DB::table('impresora')
+            ->select('impresora.ip')
+            ->where('impresora.id', $impresoraNombre)
+            ->first();
+
+        $ipImpresora = $impresora->ip;
+
         $outputs = [];
         foreach ($archivosImpresion as $contenido) {
             $nombreArchivo = "python/label/" . uniqid() . '.' . $extension;
@@ -543,7 +550,7 @@ class PrintController extends Controller
 
             // Enviar a la impresora usando lp (local), puedes adaptar con fsockopen si es red
             $modo = ($extension === 'zpl' || $marketplace->marketplace === 'MERCADOLIBRE') ? '-o raw' : '';
-            exec("lp -d {$impresoraNombre} -n 1 {$modo} {$archivoFinal}");
+            exec("lp -d {$ipImpresora} -n 1 {$modo} {$archivoFinal}");
 
             $outputs[] = $archivoFinal;
 

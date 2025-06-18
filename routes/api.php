@@ -22,4 +22,8 @@ Route::group(['middleware' => [JwtMiddleware::class]], function () {
     Route::group(['prefix' => 'tickets'], function () {
         Route::get('/', [PrintController::class, 'tickets']);
     });
+
+    Route::group(['prefix' => 'guias'], function () {
+        Route::get('/print/{documentoId}/{impresoraNombre}', [PrintController::class, 'print']);
+    });
 });
