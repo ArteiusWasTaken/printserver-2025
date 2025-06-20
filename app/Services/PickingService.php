@@ -297,6 +297,11 @@ class PickingService
 
                 $printer->setJustification(Printer::JUSTIFY_CENTER);
                 $printer->feed(2);
+                $printer->setTextSize(2, 2);
+                $printer->text($info->id . "\n");
+                $printer->setTextSize(1, 1);
+                $printer->barcode($info->id);
+                $printer->feed();
                 $printer->barcode($info->id);
                 $printer->feed();
 
