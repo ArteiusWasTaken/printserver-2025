@@ -501,7 +501,7 @@ class PrintController extends Controller
                 }
             }
         } elseif ($marketplace->guia) {
-            $url = "http://afa.spaxium.com:16227/logistica/envio/pendiente/documento/{$documentoId}/{$documento->id_marketplace_area}/1?token=" . $request->get('token');
+            $url = "https://rest.afainnova.com/logistica/envio/pendiente/documento/{$documentoId}/{$documento->id_marketplace_area}/1?token=" . $request->get('token');
 
             $response = json_decode(file_get_contents($url));
 
