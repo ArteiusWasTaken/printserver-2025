@@ -79,23 +79,6 @@ class PickingService
                     ->get()
                     ->toArray();
 
-                // PRE-MARCAR COMO EN PROCESO
-                foreach ($ventas as $index => $venta) {
-                    // El update solo funciona si el picking sigue en 0 (previene doble procesamiento)
-                    $affected = DB::table('documento')
-                        ->where('id', $venta->id)
-                        ->where('picking', 0)
-                        ->update(['picking' => 2]); // 2 = en proceso
-
-                    if ($affected === 0) {
-                        // Otro proceso ya lo tomó
-                        unset($ventas[$index]);
-                    }
-                }
-
-                // Vuelve a reindexar el array
-                $ventas = array_values($ventas);
-
                 if (!empty($ventas)) {
 
                     foreach ($ventas as $index => $venta) {
@@ -105,12 +88,13 @@ class PickingService
                             DB::table('seguimiento')->insert([
                                 'id_documento' => $venta->id,
                                 'id_usuario' => 1,
-                                'seguimiento' => 'PICKING: El pedido ha sido mandado a fase PEDIDO debido a que actualmente no contiene productos. Por favor, añada artículos para proceder con la siguiente fase del proceso.'
+                                'seguimiento' => 'PICKING: El pedido ha sido mandado a fase PEDIDO
+                                 debido a que actualmente no contiene productos.
+                                Por favor, añada artículos para proceder con la siguiente fase del proceso.'
                             ]);
 
                             DB::table('documento')->where('id', $venta->id)->update([
                                 'id_fase' => 1,
-                                'picking' => 0
                             ]);
 
                             unset($ventas[$index]);
@@ -128,7 +112,7 @@ class PickingService
                         }
                     }
 
-                    if (empty($ventas)) continue;
+                    if (empty($venta)) continue;
 
                     try {
                         self::picking($ventas);
@@ -149,7 +133,6 @@ class PickingService
             'Respuesta' => 'Imprimir picking Finalizado'
         ]);
     }
-
 
     /**
      * @param $documento
@@ -190,16 +173,6 @@ class PickingService
     {
         foreach ($documentos as $documento) {
             $seguimiento = [];
-
-            $updated = DB::table('documento')
-                ->where('id', $documento->id)
-                ->where('picking', 0)
-                ->update(['picking' => 2]);
-
-            if ($updated === 0) {
-                // Si no se pudo actualizar es porque ya lo tomó otro proceso
-                continue;
-            }
 
             $info = DB::table('documento')
                 ->join('empresa_almacen', 'documento.id_almacen_principal_empresa', '=', 'empresa_almacen.id')
@@ -261,7 +234,6 @@ class PickingService
 
                 DB::table('documento')->where(['id' => $documento->id])->update([
                     'id_fase' => 1,
-                    'picking' => 0
                 ]);
 
                 continue;
