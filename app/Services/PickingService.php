@@ -189,6 +189,7 @@ class PickingService
                 ->select(
                     'area.area',
                     'documento.id',
+                    'documento.no_venta',
                     'marketplace.marketplace',
                     'empresa.empresa',
                     'almacen.almacen'
@@ -279,6 +280,7 @@ class PickingService
                 $printer->setJustification();
                 $printer->text($info->area . ' / ' . $info->marketplace . "\n");
                 $printer->text($info->empresa . ' / ' . $info->almacen . "\n\n");
+                $printer->text('No. de venta / ' . $info->no_venta . "\n\n");
 
                 $printer->text("Productos\n");
                 $printer->text(str_repeat('-', 48) . "\n");
