@@ -274,8 +274,6 @@ class PickingService
                 $printer->setTextSize(1, 1);
                 $printer->barcode($info->id);
                 $printer->feed();
-                $printer->barcode($info->id);
-                $printer->feed();
 
                 $printer->setJustification();
                 $printer->text($info->area . ' / ' . $info->marketplace . "\n");
