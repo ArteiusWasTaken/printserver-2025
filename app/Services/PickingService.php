@@ -131,7 +131,8 @@ class PickingService
         }
         return response()->json([
             'Respuesta' => 'Imprimir picking Finalizado',
-            'Ventas' => $ventas ?? []
+            'Ventas' => $ventas ?? [],
+            'Servidores' => $servidores ?? []
         ]);
     }
 
