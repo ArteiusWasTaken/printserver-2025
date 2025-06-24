@@ -540,7 +540,6 @@ class PrintController extends Controller
 
         $ipImpresora = $impresora->ip;
 
-
         $outputs = [];
         foreach ($archivosImpresion as $contenido) {
             $nombreArchivo = "python/label/" . uniqid() . '.' . $extension;
@@ -550,17 +549,22 @@ class PrintController extends Controller
             if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
                 $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
                 $output = trim(shell_exec("python3 python/label/convert/{$pythonScript} '{$nombreArchivo}' '{$documento->zoom_guia}' 2>&1"));
-                $archivoFinal = $output;
+
+                    $pythonScript = $extension === 'pdf' ? 'pdf_to_zpl.py' : 'image_to_zpl.py';
+                    $output = trim(shell_exec("python3 python/afa/{$pythonScript} '{$output}' 2>&1"));
+                    $archivoFinal = $output;
             } else {
                 $archivoFinal = $nombreArchivo;
             }
+
+
 
             $modo = ($extension === 'zpl' || $marketplace->marketplace === 'MERCADOLIBRE') ? '-o raw' : '';
             exec("lp -d {$ipImpresora} -n 1 {$modo} {$archivoFinal}");
             $outputs[] = $archivoFinal;
 
-            if (file_exists($archivoFinal)) unlink($archivoFinal);
-            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
+//            if (file_exists($archivoFinal)) unlink($archivoFinal);
+//            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
         }
 
         return response()->json([
