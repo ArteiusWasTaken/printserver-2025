@@ -561,8 +561,7 @@ class PrintController extends Controller
                     throw new Exception("No se pudo conectar a la impresora: $errstr ($errno)");
                 }
 
-                $contenidoArchivo = file_get_contents($archivoFinal);
-                fwrite($socket, $contenidoArchivo);
+                fwrite($socket, $archivoFinal);
                 fclose($socket);
 
             } catch (Exception $e) {
