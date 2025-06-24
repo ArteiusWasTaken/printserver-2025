@@ -579,6 +579,7 @@ class PrintController extends Controller
             }
 
             $outputs[] = $nombreArchivo;
+            $outputs[] = $zplContent;
 
 // Limpieza
             if (file_exists($nombreArchivo)) unlink($nombreArchivo);
