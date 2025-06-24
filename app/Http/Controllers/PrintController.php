@@ -550,7 +550,7 @@ class PrintController extends Controller
 
             $modo = ($extension === 'zpl' || $marketplace->marketplace === 'MERCADOLIBRE') ? '-o raw' : '';
             exec("lp -d {$ipImpresora} -n 1 {$modo} {$archivoFinal}");
-$S = "lp -d {$ipImpresora} -n 1 {$modo} {$archivoFinal}";
+            $S = "lp -d {$ipImpresora} -n 1 {$modo} {$archivoFinal}";
             $outputs[] = $archivoFinal;
 
             if (file_exists($archivoFinal)) unlink($archivoFinal);

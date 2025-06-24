@@ -2,28 +2,35 @@
 
 namespace App\Services;
 
+use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use Httpful\Exception\ConnectionErrorException;
+use Httpful\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
 class DropboxService
 {
-    protected $clientId;
-    protected $clientSecret;
-    protected $refreshToken;
-    protected $client;
+    protected mixed $clientId;
+    protected mixed $clientSecret;
+    protected mixed $refreshToken;
+    protected string $token;
+    protected Client $client;
 
     public function __construct()
     {
         $this->clientId = env('DROPBOX_CLIENT_ID');
         $this->clientSecret = env('DROPBOX_CLIENT_SECRET');
         $this->refreshToken = env('DROPBOX_REFRESH_TOKEN');
+        $this->token = config('services.dropbox.token');
         $this->client = new Client();
     }
 
     /**
      * Renueva el access token de Dropbox y lo guarda en DROPBOX_TOKEN del .env
+     * @throws ConnectionErrorException
+     * @throws Exception
      */
     public function refreshAccessToken()
     {
@@ -35,7 +42,7 @@ class DropboxService
 
         $authorization = base64_encode($this->clientId . ':' . $this->clientSecret);
 
-        $response = \Httpful\Request::post($url)
+        $response = Request::post($url)
             ->addHeader('Authorization', "Basic $authorization")
             ->addHeader('Content-Type', 'application/x-www-form-urlencoded')
             ->body($body)
@@ -47,21 +54,21 @@ class DropboxService
             self::setEnvValue($data['access_token']);
             return $data['access_token'];
         }
-        throw new \Exception('No se pudo renovar el access token de Dropbox');
+        throw new Exception('No se pudo renovar el access token de Dropbox');
     }
 
     /**
      * Actualiza o agrega una variable en el .env
      */
-    private static function setEnvValue($value)
+    private static function setEnvValue($value): void
     {
         $envPath = base_path('.env');
         $env = File::get($envPath);
 
         if (preg_match("/^DROPBOX_TOKEN=.*$/m", $env)) {
-            $env = preg_replace("/^DROPBOX_TOKEN=.*$/m", "DROPBOX_TOKEN={$value}", $env);
+            $env = preg_replace("/^DROPBOX_TOKEN=.*$/m", "DROPBOX_TOKEN=$value", $env);
         } else {
-            $env .= "\nDROPBOX_TOKEN={$value}";
+            $env .= "\nDROPBOX_TOKEN=$value";
         }
 
         File::put($envPath, $env);
@@ -81,7 +88,7 @@ class DropboxService
      * Descarga un archivo en binario desde Dropbox.
      * Devuelve el contenido binario (para enviar al frontend como base64 si se necesita).
      */
-    public function downloadFile($path)
+    public function downloadFile($path): ?string
     {
         $url = 'https://content.dropboxapi.com/2/files/download';
 
@@ -99,7 +106,10 @@ class DropboxService
                 return $response->getBody()->getContents();
             }
             sleep(1);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
+            Log::error('Dropbox downloadFile error: '.$e->getMessage());
+            sleep(1);
+        } catch (GuzzleException $e) {
             Log::error('Dropbox downloadFile error: '.$e->getMessage());
             sleep(1);
         }
@@ -170,7 +180,13 @@ class DropboxService
                     'dropbox' => $data
                 ];
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
+            Log::error('Dropbox uploadFile error: ' . $e->getMessage());
+            return [
+                'error' => true,
+                'message' => $e->getMessage()
+            ];
+        } catch (GuzzleException $e) {
             Log::error('Dropbox uploadFile error: ' . $e->getMessage());
             return [
                 'error' => true,
@@ -206,7 +222,10 @@ class DropboxService
                 Log::warning('Dropbox request ('.$url.') status: '.$status.' | response: '.$res);
                 sleep(1);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
+            Log::error('Dropbox request error: '.$e->getMessage());
+            sleep(1);
+        } catch (GuzzleException $e) {
             Log::error('Dropbox request error: '.$e->getMessage());
             sleep(1);
         }
