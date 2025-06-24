@@ -547,8 +547,8 @@ class PrintController extends Controller
             chmod($nombreArchivo, 0777);
 
             if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
-                $pythonScript = $extension === 'pdf' ? 'pdf_to_zpl.py' : 'image_to_zpl.py';
-                $output = trim(shell_exec("python3 python/afa/{$pythonScript} '{$nombreArchivo}' 2>&1"));
+                $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
+                $output = trim(shell_exec("python3 python/label/convert/{$pythonScript} '{$nombreArchivo}' '{$documento->zoom_guia}' 2>&1"));
                 $archivoFinal = $output;
             } else {
                 $archivoFinal = $nombreArchivo;
@@ -560,7 +560,8 @@ class PrintController extends Controller
                     throw new Exception("No se pudo conectar a la impresora: $errstr ($errno)");
                 }
 
-                fwrite($socket, $archivoFinal);
+                $contenidoArchivo = file_get_contents($archivoFinal);
+                fwrite($socket, $contenidoArchivo);
                 fclose($socket);
 
             } catch (Exception $e) {
@@ -587,7 +588,6 @@ class PrintController extends Controller
             'code' => 200,
             'message' => 'Guías enviadas a impresión. '. $ipImpresora,
             'outputs' => $outputs,
-            'script' => $pythonScript ?? []
         ]);
     }
 
