@@ -500,7 +500,6 @@ class PrintController extends Controller
                     ]);
                 }
 
-                // Ahora sí conviertes a base64
                 $archivosImpresion[] = base64_encode($content);
 
                 if (str_ends_with($archivo->nombre, '.zpl')) {
@@ -541,6 +540,7 @@ class PrintController extends Controller
 
         $ipImpresora = $impresora->ip;
 
+
         $outputs = [];
         foreach ($archivosImpresion as $contenido) {
             $nombreArchivo = "python/label/" . uniqid() . '.' . $extension;
@@ -557,7 +557,6 @@ class PrintController extends Controller
 
             $modo = ($extension === 'zpl' || $marketplace->marketplace === 'MERCADOLIBRE') ? '-o raw' : '';
             exec("lp -d {$ipImpresora} -n 1 {$modo} {$archivoFinal}");
-            $S = "lp -d {$ipImpresora} -n 1 {$modo} {$archivoFinal}";
             $outputs[] = $archivoFinal;
 
             if (file_exists($archivoFinal)) unlink($archivoFinal);
@@ -568,7 +567,7 @@ class PrintController extends Controller
             'code' => 200,
             'message' => 'Guías enviadas a impresión.',
             'outputs' => $outputs,
-            'a' => $S ??[]
+            'a' => $archivosImpresion
         ]);
     }
 
