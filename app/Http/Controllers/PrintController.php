@@ -547,25 +547,52 @@ class PrintController extends Controller
             chmod($nombreArchivo, 0777);
 
             if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
-                $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
-                $output = trim(shell_exec("python3 python/label/convert/{$pythonScript} '{$nombreArchivo}' '{$documento->zoom_guia}' 2>&1"));
-                $archivoFinal = $output;
+                $pythonScript = $extension === 'pdf' ? 'pdf_to_zpl.py' : 'image_to_zpl.py';
+                $zpl = shell_exec("python3 python/afa/{$pythonScript} '{$nombreArchivo}' 2>&1");
+
+                if (!$zpl) {
+                    return response()->json([
+                        'code' => 500,
+                        'message' => 'Error al convertir a ZPL con script Python',
+                    ]);
+                }
+                $contenidoAEnviar = $zpl;
             } else {
-                $archivoFinal = $nombreArchivo;
+                $contenidoAEnviar = file_get_contents($nombreArchivo);
             }
 
-            exec("nc {$ipImpresora} 9100 < {$archivoFinal}");
-            $outputs[] = $archivoFinal;
+            try {
+                $socket = fsockopen($ipImpresora, 9100, $errno, $errstr, 5);
+                if (!$socket) {
+                    throw new Exception("No se pudo conectar a la impresora: $errstr ($errno)");
+                }
 
-//            if (file_exists($archivoFinal)) unlink($archivoFinal);
-//            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
+                fwrite($socket, $contenidoAEnviar);
+                fclose($socket);
+            }
+            catch (Exception $e) {
+                ErrorLoggerService::logger(
+                    'Error en etiquetas. Impresora: ' . $ipImpresora,
+                    'PrintController',
+                    [
+                        'exception' => $e->getMessage(),
+                        'line' => self::logLocation()
+                    ]
+                );
+                return response()->json([
+                    'Error' => 'No se pudo imprimir: ' . $e->getMessage()
+                ], 500);
+            }
+
+            $outputs[] = $nombreArchivo;
+
+            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
         }
 
         return response()->json([
             'code' => 200,
-            'message' => 'Guías enviadas a impresión.',
+            'message' => 'Guías enviadas a impresión. '. $ipImpresora,
             'outputs' => $outputs,
-            'a' => $archivosImpresion
         ]);
     }
 
