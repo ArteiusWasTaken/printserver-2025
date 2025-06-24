@@ -485,18 +485,10 @@ class PrintController extends Controller
             foreach ($archivos as $archivo) {
                 $content = $dropboxService->downloadFile($archivo->dropbox);
 
-                if (empty($content)) {
+                if (empty($content) || !is_string($content)) {
                     return response()->json([
                         'code' => 500,
                         'message' => 'Error al obtener archivo: ' . $archivo->nombre,
-                        'error' => 'Contenido vacío o nulo',
-                    ]);
-                }
-
-                if (!is_string($content)) {
-                    return response()->json([
-                        'code' => 500,
-                        'message' => 'Contenido inválido para archivo: ' . $archivo->nombre,
                     ]);
                 }
 
@@ -508,7 +500,6 @@ class PrintController extends Controller
             }
         } elseif ($marketplace->guia) {
             $url = "https://rest.afainnova.com/logistica/envio/pendiente/documento/{$documentoId}/{$documento->id_marketplace_area}/1?token=" . $request->get('token');
-
             $response = json_decode(file_get_contents($url));
 
             if (!$response || $response->code !== 200) {
@@ -519,11 +510,7 @@ class PrintController extends Controller
             }
 
             $archivosImpresion[] = $response->file;
-
-            $extension = match ($marketplace->marketplace) {
-                'MERCADOLIBRE' => 'zpl',
-                default => 'pdf',
-            };
+            $extension = $marketplace->marketplace === 'MERCADOLIBRE' ? 'zpl' : 'pdf';
         }
 
         if (empty($archivosImpresion)) {
@@ -539,19 +526,30 @@ class PrintController extends Controller
             ->first();
 
         $ipImpresora = $impresora->ip;
-
         $outputs = [];
+
         foreach ($archivosImpresion as $contenido) {
             $nombreArchivo = "python/label/" . uniqid() . '.' . $extension;
             file_put_contents($nombreArchivo, base64_decode($contenido));
             chmod($nombreArchivo, 0777);
 
-            if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
-                $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
-                $output = trim(shell_exec("python3 python/label/convert/{$pythonScript} '{$nombreArchivo}' '{$documento->zoom_guia}' 2>&1"));
-                $archivoFinal = $output;
+            // Convertir a ZPL si es PDF o imagen
+            if ($extension !== 'zpl') {
+                $pythonScript = $extension === 'pdf' ? 'pdf_to_zpl.py' : 'image_to_zpl.py';
+                $zpl = shell_exec("python3 python/afa/{$pythonScript} '{$nombreArchivo}' 2>&1");
+
+                if (!$zpl || strlen($zpl) < 100) {
+                    return response()->json([
+                        'code' => 500,
+                        'message' => 'Error al convertir PDF a ZPL',
+                        'script' => $pythonScript,
+                        'output' => $zpl
+                    ]);
+                }
+
+                $contenidoAEnviar = $zpl;
             } else {
-                $archivoFinal = $nombreArchivo;
+                $contenidoAEnviar = file_get_contents($nombreArchivo);
             }
 
             try {
@@ -560,10 +558,8 @@ class PrintController extends Controller
                     throw new Exception("No se pudo conectar a la impresora: $errstr ($errno)");
                 }
 
-                $contenidoArchivo = file_get_contents($archivoFinal);
-                fwrite($socket, $contenidoArchivo);
+                fwrite($socket, $contenidoAEnviar);
                 fclose($socket);
-
             } catch (Exception $e) {
                 ErrorLoggerService::logger(
                     'Error en etiquetas. Impresora: ' . $ipImpresora,
@@ -578,16 +574,15 @@ class PrintController extends Controller
                 ], 500);
             }
 
-            $outputs[] = $archivoFinal;
-
-            if (file_exists($archivoFinal)) unlink($archivoFinal);
+            $outputs[] = $nombreArchivo;
             if (file_exists($nombreArchivo)) unlink($nombreArchivo);
         }
 
         return response()->json([
             'code' => 200,
-            'message' => 'Guías enviadas a impresión. '. $ipImpresora,
+            'message' => 'Guías enviadas a impresión. ' . $ipImpresora,
             'outputs' => $outputs,
+            'script' => $pythonScript ?? null
         ]);
     }
 
