@@ -548,9 +548,16 @@ class PrintController extends Controller
 
             if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
                 $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
-                $output = trim(shell_exec("python3 python/label/convert/{$pythonScript} '{$nombreArchivo}' '{$documento->zoom_guia}' 2>&1"));
+
+                $command = 'python python/label/convert/' . $pythonScript .
+                    escapeshellarg($nombreArchivo) . ' ' .
+                    escapeshellarg($documento->zoom_guia) . ' 2>&1';
+                $output = trim(shell_exec($command));
+
                 $pythonScript = $extension === 'pdf' ? 'pdf_to_zpl.py' : 'image_to_zpl.py';
-                $output = trim(shell_exec("python3 python/afa/{$pythonScript} '{$output}' 2>&1"));
+                $command = 'python python/afa/' . $pythonScript .
+                    escapeshellarg($output) . ' 2>&1';
+                $output = trim(shell_exec($command));
                 $archivoFinal = $output;
             } else {
                 $archivoFinal = $nombreArchivo;
