@@ -546,20 +546,12 @@ class PrintController extends Controller
             file_put_contents($nombreArchivo, base64_decode($contenido));
             chmod($nombreArchivo, 0777);
 
-            if ($extension === 'zpl') {
-                $dataToSend = file_get_contents($nombreArchivo);
+            if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
+                $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
+                $output = trim(shell_exec("python3 python/label/convert/{$pythonScript} '{$nombreArchivo}' '{$documento->zoom_guia}' 2>&1"));
+                $archivoFinal = $output;
             } else {
-                $pythonScript = ($extension === 'pdf') ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
-                $outputFile = trim(shell_exec("python3 python/label/convert/{$pythonScript} '{$nombreArchivo}' '{$documento->zoom_guia}' 2>&1"));
-
-                if (!file_exists($outputFile)) {
-                    return response()->json([
-                        'code' => 500,
-                        'message' => "Error en la conversión del archivo: {$outputFile}",
-                    ]);
-                }
-
-                $dataToSend = file_get_contents($outputFile);
+                $archivoFinal = $nombreArchivo;
             }
 
             try {
@@ -568,8 +560,31 @@ class PrintController extends Controller
                     throw new Exception("No se pudo conectar a la impresora: $errstr ($errno)");
                 }
 
-                fwrite($socket, $dataToSend);
+                fwrite($socket, $archivoFinal);
                 fclose($socket);
+
+            } catch (Exception $e) {
+                ErrorLoggerService::logger(
+                    'Error en etiquetas. Impresora: ' . $ipImpresora,
+                    'PrintController',
+                    [
+                        'exception' => $e->getMessage(),
+                        'line' => self::logLocation()
+                    ]
+                );
+                return response()->json([
+                    'Error' => 'No se pudo imprimir: ' . $e->getMessage()
+                ], 500);
+            }
+            try {
+                $socket = fsockopen($ipImpresora, 9100, $errno, $errstr, 5);
+                if (!$socket) {
+                    throw new Exception("No se pudo conectar a la impresora: $errstr ($errno)");
+                }
+
+                fwrite($socket, file_get_contents($archivoFinal));
+                fclose($socket);
+
             } catch (Exception $e) {
                 ErrorLoggerService::logger(
                     'Error en etiquetas. Impresora: ' . $ipImpresora,
@@ -584,11 +599,11 @@ class PrintController extends Controller
                 ], 500);
             }
 
-            // Limpiar archivos
-            if (isset($outputFile) && file_exists($outputFile)) unlink($outputFile);
+            $outputs[] = $archivoFinal;
+
+            if (file_exists($archivoFinal)) unlink($archivoFinal);
             if (file_exists($nombreArchivo)) unlink($nombreArchivo);
         }
-
 
         return response()->json([
             'code' => 200,
