@@ -485,10 +485,18 @@ class PrintController extends Controller
             foreach ($archivos as $archivo) {
                 $content = $dropboxService->downloadFile($archivo->dropbox);
 
-                if (empty($content) || !is_string($content)) {
+                if (empty($content)) {
                     return response()->json([
                         'code' => 500,
                         'message' => 'Error al obtener archivo: ' . $archivo->nombre,
+                        'error' => 'Contenido vacío o nulo',
+                    ]);
+                }
+
+                if (!is_string($content)) {
+                    return response()->json([
+                        'code' => 500,
+                        'message' => 'Contenido inválido para archivo: ' . $archivo->nombre,
                     ]);
                 }
 
@@ -500,6 +508,7 @@ class PrintController extends Controller
             }
         } elseif ($marketplace->guia) {
             $url = "https://rest.afainnova.com/logistica/envio/pendiente/documento/{$documentoId}/{$documento->id_marketplace_area}/1?token=" . $request->get('token');
+
             $response = json_decode(file_get_contents($url));
 
             if (!$response || $response->code !== 200) {
@@ -510,7 +519,11 @@ class PrintController extends Controller
             }
 
             $archivosImpresion[] = $response->file;
-            $extension = $marketplace->marketplace === 'MERCADOLIBRE' ? 'zpl' : 'pdf';
+
+            $extension = match ($marketplace->marketplace) {
+                'MERCADOLIBRE' => 'zpl',
+                default => 'pdf',
+            };
         }
 
         if (empty($archivosImpresion)) {
@@ -526,27 +539,23 @@ class PrintController extends Controller
             ->first();
 
         $ipImpresora = $impresora->ip;
-        $outputs = [];
 
+        $outputs = [];
         foreach ($archivosImpresion as $contenido) {
             $nombreArchivo = "python/label/" . uniqid() . '.' . $extension;
             file_put_contents($nombreArchivo, base64_decode($contenido));
             chmod($nombreArchivo, 0777);
 
-            // Convertir a ZPL si es PDF o imagen
-            if ($extension !== 'zpl') {
+            if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
                 $pythonScript = $extension === 'pdf' ? 'pdf_to_zpl.py' : 'image_to_zpl.py';
                 $zpl = shell_exec("python3 python/afa/{$pythonScript} '{$nombreArchivo}' 2>&1");
 
-                if (!$zpl || strlen($zpl) < 100) {
+                if (!$zpl) {
                     return response()->json([
                         'code' => 500,
-                        'message' => 'Error al convertir PDF a ZPL',
-                        'script' => $pythonScript,
-                        'output' => $zpl
+                        'message' => 'Error al convertir a ZPL con script Python',
                     ]);
                 }
-
                 $contenidoAEnviar = $zpl;
             } else {
                 $contenidoAEnviar = file_get_contents($nombreArchivo);
@@ -560,7 +569,8 @@ class PrintController extends Controller
 
                 fwrite($socket, $contenidoAEnviar);
                 fclose($socket);
-            } catch (Exception $e) {
+            }
+            catch (Exception $e) {
                 ErrorLoggerService::logger(
                     'Error en etiquetas. Impresora: ' . $ipImpresora,
                     'PrintController',
@@ -575,14 +585,14 @@ class PrintController extends Controller
             }
 
             $outputs[] = $nombreArchivo;
+
             if (file_exists($nombreArchivo)) unlink($nombreArchivo);
         }
 
         return response()->json([
             'code' => 200,
-            'message' => 'Guías enviadas a impresión. ' . $ipImpresora,
+            'message' => 'Guías enviadas a impresión. '. $ipImpresora,
             'outputs' => $outputs,
-            'script' => $pythonScript ?? null
         ]);
     }
 
