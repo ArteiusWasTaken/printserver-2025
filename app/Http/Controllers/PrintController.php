@@ -579,6 +579,7 @@ class PrintController extends Controller
             }
 
             $outputs[] = $archivoFinal;
+            $outputs[] = file_get_contents($archivoFinal);
 
             if (file_exists($archivoFinal)) unlink($archivoFinal);
             if (file_exists($nombreArchivo)) unlink($nombreArchivo);
@@ -586,7 +587,7 @@ class PrintController extends Controller
 
         return response()->json([
             'code' => 200,
-            'message' => 'Guías enviadas a impresión.',
+            'message' => 'Guías enviadas a impresión. '. $ipImpresora,
             'outputs' => $outputs,
         ]);
     }
