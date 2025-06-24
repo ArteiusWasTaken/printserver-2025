@@ -549,27 +549,29 @@ class PrintController extends Controller
             if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
                 $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
                 $output = trim(shell_exec("python3 python/label/convert/{$pythonScript} '{$nombreArchivo}' '{$documento->zoom_guia}' 2>&1"));
-
-                $pythonScript = $extension === 'pdf' ? 'pdf_to_zpl.py' : 'image_to_zpl.py';
-                $output = trim(shell_exec("python3 python/afa/{$pythonScript} '{$output}' 2>&1"));
                 $archivoFinal = $output;
             } else {
                 $archivoFinal = $nombreArchivo;
             }
-            $fp = fsockopen($ipImpresora, 9100, $errno, $errstr, 10);
+
+            $zplContent = file_get_contents($archivoFinal);
+
+            $ip = $impresora->ip;
+            $port = 9100;
+
+            $fp = fsockopen($ip, $port, $errno, $errstr, 5);
             if (!$fp) {
                 return response()->json([
                     'code' => 500,
-                    'message' => "Error al conectar a la impresora: $errstr ($errno)"
+                    'message' => "Error al conectar con impresora $ip:$port - $errno: $errstr"
                 ]);
             }
-
-            fwrite($fp, $archivoFinal);
+            fwrite($fp, $zplContent);
             fclose($fp);
             $outputs[] = $archivoFinal;
 
-            if (file_exists($archivoFinal)) unlink($archivoFinal);
-            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
+//            if (file_exists($archivoFinal)) unlink($archivoFinal);
+//            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
         }
 
         return response()->json([
