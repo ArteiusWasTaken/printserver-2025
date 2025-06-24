@@ -560,29 +560,8 @@ class PrintController extends Controller
                     throw new Exception("No se pudo conectar a la impresora: $errstr ($errno)");
                 }
 
-                fwrite($socket, $archivoFinal);
-                fclose($socket);
-
-            } catch (Exception $e) {
-                ErrorLoggerService::logger(
-                    'Error en etiquetas. Impresora: ' . $ipImpresora,
-                    'PrintController',
-                    [
-                        'exception' => $e->getMessage(),
-                        'line' => self::logLocation()
-                    ]
-                );
-                return response()->json([
-                    'Error' => 'No se pudo imprimir: ' . $e->getMessage()
-                ], 500);
-            }
-            try {
-                $socket = fsockopen($ipImpresora, 9100, $errno, $errstr, 5);
-                if (!$socket) {
-                    throw new Exception("No se pudo conectar a la impresora: $errstr ($errno)");
-                }
-
-                fwrite($socket, file_get_contents($archivoFinal));
+                $contenidoArchivo = file_get_contents($archivoFinal);
+                fwrite($socket, $contenidoArchivo);
                 fclose($socket);
 
             } catch (Exception $e) {
