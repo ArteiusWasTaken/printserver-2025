@@ -553,7 +553,6 @@ class PrintController extends Controller
             } else {
                 $archivoFinal = $nombreArchivo;
             }
-            $outputs[] = $archivoFinal;
 
             try {
                 $socket = fsockopen($ipImpresora, 9100, $errno, $errstr, 5);
