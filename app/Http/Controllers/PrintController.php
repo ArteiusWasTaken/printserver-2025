@@ -564,7 +564,6 @@ class PrintController extends Controller
                 ]);
             }
 
-            fwrite($fp, file_get_contents($archivoFinal));
             fwrite($fp, $archivoFinal);
             fclose($fp);
             $outputs[] = $archivoFinal;
