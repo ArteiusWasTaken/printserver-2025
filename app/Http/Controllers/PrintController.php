@@ -556,16 +556,15 @@ class PrintController extends Controller
                 $archivoFinal = $nombreArchivo;
             }
 
-            $fp = fsockopen($ipImpresora, 9100, $errno, $errstr, 10);
-            if (!$fp) {
+            $fp = fsockopen($ipImpresora, 9100, $errno, $errstr, 5);
+            if ($fp) {
+                fwrite($fp, $archivoFinal);
+                fclose($fp);
+            } else {
                 return response()->json([
                     'code' => 500,
-                    'message' => "Error al conectar a la impresora: $errstr ($errno)"
-                ]);
+                    'message' => "Error al conectar a la impresora $ipImpresora: $errstr ($errno)",]);
             }
-
-            fwrite($fp, $archivoFinal);
-            fclose($fp);
             $outputs[] = $archivoFinal;
 
             if (file_exists($archivoFinal)) unlink($archivoFinal);
