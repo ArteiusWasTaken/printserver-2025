@@ -554,20 +554,7 @@ class PrintController extends Controller
                 $archivoFinal = $nombreArchivo;
             }
 
-            $zplContent = file_get_contents($archivoFinal);
-
-            $ip = $impresora->ip;
-            $port = 9100;
-
-            $fp = fsockopen($ip, $port, $errno, $errstr, 5);
-            if (!$fp) {
-                return response()->json([
-                    'code' => 500,
-                    'message' => "Error al conectar con impresora $ip:$port - $errno: $errstr"
-                ]);
-            }
-            fwrite($fp, $zplContent);
-            fclose($fp);
+            exec("nc {$ipImpresora} 9100 < {$archivoFinal}");
             $outputs[] = $archivoFinal;
 
 //            if (file_exists($archivoFinal)) unlink($archivoFinal);
