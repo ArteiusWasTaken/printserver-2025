@@ -548,34 +548,42 @@ class PrintController extends Controller
 
             if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
                 $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
-
-                $command = 'python python/label/convert/' . $pythonScript .
+                $command = 'python python/label/convert/' . $pythonScript . ' ' .
                     escapeshellarg($nombreArchivo) . ' ' .
                     escapeshellarg($documento->zoom_guia) . ' 2>&1';
+
                 $output = trim(shell_exec($command));
 
-                $pythonScript = $extension === 'pdf' ? 'pdf_to_zpl.py' : 'image_to_zpl.py';
-                $command = 'python python/afa/' . $pythonScript .
+                $pythonScript2 = $extension === 'pdf' ? 'pdf_to_zpl.py' : 'image_to_zpl.py';
+                $command2 = 'python python/afa/' . $pythonScript2 . ' ' .
                     escapeshellarg($output) . ' 2>&1';
-                $output = trim(shell_exec($command));
-                $archivoFinal = $output;
+
+                $output2 = trim(shell_exec($command2));
+
+                // Esto ya es el contenido ZPL final
+                $zplContent = $output2;
             } else {
-                $archivoFinal = $nombreArchivo;
+                $zplContent = file_get_contents($nombreArchivo); // Ya era ZPL original
             }
 
+// Enviar a impresora Zebra por red
             $fp = fsockopen($ipImpresora, 9100, $errno, $errstr, 5);
             if ($fp) {
-                fwrite($fp, $archivoFinal);
+                fwrite($fp, $zplContent);
                 fclose($fp);
             } else {
                 return response()->json([
                     'code' => 500,
-                    'message' => "Error al conectar a la impresora $ipImpresora: $errstr ($errno)",]);
+                    'message' => "Error al conectar a la impresora $ipImpresora: $errstr ($errno)",
+                ]);
             }
-            $outputs[] = $archivoFinal;
 
-            if (file_exists($archivoFinal)) unlink($archivoFinal);
+            $outputs[] = $nombreArchivo;
+
+// Limpieza
             if (file_exists($nombreArchivo)) unlink($nombreArchivo);
+            if (!empty($output) && file_exists($output)) unlink($output); // solo si era archivo temporal
+
         }
 
         return response()->json([
