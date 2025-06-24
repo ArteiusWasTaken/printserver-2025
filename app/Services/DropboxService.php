@@ -1,6 +1,6 @@
 <?php /** @noinspection PhpComposerExtensionStubsInspection */
 
-namespace App\Http\Services;
+namespace App\Services;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
@@ -195,6 +195,7 @@ class DropboxService
                 'headers' => $headers,
                 'body' => !empty($body) ? json_encode($body) : null,
                 'http_errors' => false,
+                'verify' => false,
             ]);
             $status = $response->getStatusCode();
             $res = $response->getBody()->getContents();

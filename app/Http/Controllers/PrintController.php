@@ -480,7 +480,7 @@ class PrintController extends Controller
         $archivosImpresion = [];
         $extension = 'pdf';
 
-        if ($archivos->isNotEmpty()) {
+        if (!empty($archivos)) {
             $dropboxService = new DropboxService();
             foreach ($archivos as $archivo) {
                 $resp = $dropboxService->downloadFile($archivo->dropbox);
@@ -548,10 +548,9 @@ class PrintController extends Controller
                 $archivoFinal = $nombreArchivo;
             }
 
-            // Enviar a la impresora usando lp (local), puedes adaptar con fsockopen si es red
             $modo = ($extension === 'zpl' || $marketplace->marketplace === 'MERCADOLIBRE') ? '-o raw' : '';
             exec("lp -d {$ipImpresora} -n 1 {$modo} {$archivoFinal}");
-
+$S = "lp -d {$ipImpresora} -n 1 {$modo} {$archivoFinal}";
             $outputs[] = $archivoFinal;
 
             if (file_exists($archivoFinal)) unlink($archivoFinal);
@@ -562,6 +561,7 @@ class PrintController extends Controller
             'code' => 200,
             'message' => 'Guías enviadas a impresión.',
             'outputs' => $outputs,
+            'a' => $S ??[]
         ]);
     }
 
