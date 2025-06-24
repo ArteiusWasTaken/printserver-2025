@@ -483,18 +483,25 @@ class PrintController extends Controller
         if (!empty($archivos)) {
             $dropboxService = new DropboxService();
             foreach ($archivos as $archivo) {
-                $resp = $dropboxService->downloadFile($archivo->dropbox);
+                $content = $dropboxService->downloadFile($archivo->dropbox);
 
-                if (empty($resp['success'])) {
+                if (empty($content)) {
                     return response()->json([
                         'code' => 500,
-                        'message' => 'Error al obtener archivo: ' . $archivo->nombre .
-                            (isset($resp['message']) ? ' - ' . $resp['message'] : ''),
-                        'error' => $resp,
+                        'message' => 'Error al obtener archivo: ' . $archivo->nombre,
+                        'error' => 'Contenido vacío o nulo',
                     ]);
                 }
 
-                $archivosImpresion[] = base64_encode($resp['content']);
+                if (!is_string($content)) {
+                    return response()->json([
+                        'code' => 500,
+                        'message' => 'Contenido inválido para archivo: ' . $archivo->nombre,
+                    ]);
+                }
+
+                // Ahora sí conviertes a base64
+                $archivosImpresion[] = base64_encode($content);
 
                 if (str_ends_with($archivo->nombre, '.zpl')) {
                     $extension = 'zpl';

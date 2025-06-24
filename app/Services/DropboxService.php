@@ -102,19 +102,27 @@ class DropboxService
                 'headers' => $headers,
                 'http_errors' => false,
             ]);
+
             if ($response->getStatusCode() === 200) {
-                return $response->getBody()->getContents();
+                $body = $response->getBody();
+                $body->rewind();
+                $content = $body->getContents();
+
+                if ($content === false || $content === '') {
+                    Log::error("Dropbox downloadFile vacío para path: $path");
+                    return null;
+                }
+
+                return $content;
+            } else {
+                $errorMsg = "Dropbox API respondió con código {$response->getStatusCode()} para path: $path";
+                Log::error($errorMsg);
+                return null;
             }
-            sleep(1);
-        } catch (Exception $e) {
-            Log::error('Dropbox downloadFile error: '.$e->getMessage());
-            sleep(1);
-        } catch (GuzzleException $e) {
-            Log::error('Dropbox downloadFile error: '.$e->getMessage());
-            sleep(1);
+        } catch (Exception|GuzzleException $e) {
+            Log::error('Dropbox downloadFile error: ' . $e->getMessage());
+            return null;
         }
-        // Si falla, retorna error estándar
-        return null;
     }
 
     /**
