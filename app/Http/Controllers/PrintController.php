@@ -8,8 +8,6 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Mike42\Escpos\PrintConnectors\FilePrintConnector;
-use Mike42\Escpos\Printer;
 
 /**
  *
@@ -41,7 +39,7 @@ class PrintController extends Controller
 
         foreach ($etiquetas as $etiqueta) {
             try {
-                if($tipo == '1') {
+                if ($tipo == '1') {
                     $command = 'python python/label/' . $tamanio . '/sku_description.py ' .
                         escapeshellarg($etiqueta->codigo) . ' ' .
                         escapeshellarg($etiqueta->descripcion) . ' ' .
@@ -77,7 +75,8 @@ class PrintController extends Controller
         }
         return response()->json([
             'Respuesta' => 'Impresion Correcta'
-        ]);    }
+        ]);
+    }
 
     /**
      * @return string
@@ -223,7 +222,7 @@ class PrintController extends Controller
     {
         $data = json_decode($request->input('data'));
 
-        if (!isset( $data->codigo, $data->descripcion)) {
+        if (!isset($data->codigo, $data->descripcion)) {
             return response()->json([
                 'code' => 400,
                 'message' => 'Faltan datos requeridos: codigo o descripcion.'
@@ -365,11 +364,11 @@ class PrintController extends Controller
 
         $outputs = [];
         foreach ($archivosImpresion as $contenido) {
-            $nombreArchivo = "python/label/" . uniqid() . '.' . $extension;
-            file_put_contents($nombreArchivo, base64_decode($contenido));
-            chmod($nombreArchivo, 0777);
-
             if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
+                $nombreArchivo = "python/label/" . uniqid() . '.' . $extension;
+                file_put_contents($nombreArchivo, base64_decode($contenido));
+                chmod($nombreArchivo, 0777);
+
                 $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
                 $command = 'python3 python/afa/' . $pythonScript . ' ' .
                     escapeshellarg($nombreArchivo) . ' ' .
@@ -388,17 +387,17 @@ class PrintController extends Controller
                 }
 
             } else {
+                $nombreArchivo = "python/label/" . uniqid() . '.' . $extension;
+                file_put_contents($nombreArchivo, $contenido);
+                chmod($nombreArchivo, 0777);
+                $zplContent = $contenido;
 
-                $fp = fsockopen($ipImpresora, 9100, $errno, $errstr, 5);
-                if ($fp) {
-                    fwrite($fp, $contenido);
-                    fclose($fp);
-                } else {
-                    return response()->json([
-                        'code' => 500,
-                        'message' => "Error al conectar a la impresora $ipImpresora: $errstr ($errno)",
-                    ]);
-                }
+                $command = 'python3 python/afa/send_zpl_to_printer.py' . ' ' .
+                    escapeshellarg($zplContent) . ' ' .
+                    escapeshellarg($ipImpresora) . ' 2>&1';
+
+                shell_exec($command);
+
             }
 
             $outputs[] = $nombreArchivo;
@@ -409,7 +408,7 @@ class PrintController extends Controller
 
         return response()->json([
             'code' => 200,
-            'message' => 'Guías enviadas a impresión. '. $ipImpresora,
+            'message' => 'Guías enviadas a impresión. ' . $ipImpresora,
             'outputs' => $outputs,
         ]);
     }
