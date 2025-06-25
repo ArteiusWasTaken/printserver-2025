@@ -44,4 +44,4 @@ if _name_ == "_main_":
     if len(sys.argv) < 3:
         print("Uso: pdf_to_thermal.py archivo.pdf zoom")
         sys.exit(1)
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1],sys.argv[2])
