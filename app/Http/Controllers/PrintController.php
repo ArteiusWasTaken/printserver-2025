@@ -303,7 +303,7 @@ class PrintController extends Controller
         $archivosImpresion = [];
         $extension = 'pdf';
 
-        if (!isEmpty($archivos)) {
+        if ($archivos->count() > 0) {
             $dropboxService = new DropboxService();
             foreach ($archivos as $archivo) {
                 $content = $dropboxService->downloadFile($archivo->dropbox);
@@ -388,10 +388,19 @@ class PrintController extends Controller
                 }
 
             } else {
-                $command = 'python3 python/afa/send_zpl_to_printer.py' . ' ' .
+                $command = 'python3 python/afa/send_zpl_to_printer.py ' .
                     escapeshellarg($nombreArchivo) . ' ' .
                     escapeshellarg($ipImpresora) . ' 2>&1';
-                shell_exec($command);
+
+                $output = shell_exec($command);
+
+                if (!str_contains($output, '✅')) {
+                    return response()->json([
+                        'code' => 500,
+                        'message' => 'Error al enviar archivo ZPL a la impresora',
+//                        'output' => $output,
+                    ]);
+                }
             }
 
             $outputs[] = $nombreArchivo;
