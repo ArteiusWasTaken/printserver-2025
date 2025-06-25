@@ -547,7 +547,7 @@ class PrintController extends Controller
             chmod($nombreArchivo, 0777);
 
             if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
-                $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_zpl.py';
+                $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
                 $command = 'python3 python/afa/' . $pythonScript . ' ' .
                     escapeshellarg($nombreArchivo) . ' ' .
                     escapeshellarg(0) . ' ' .
@@ -555,7 +555,6 @@ class PrintController extends Controller
 
 
                 $zplContent = trim(shell_exec($command));
-                $zplContent = str_replace(["\n", "\r"], '', $zplContent);
 
                 if (empty($zplContent) || !str_contains($zplContent, '^XA')) {
                     return response()->json([
@@ -566,27 +565,24 @@ class PrintController extends Controller
                 }
 
             } else {
-                $zplContent = file_get_contents($nombreArchivo); // Ya era ZPL original
+                $zplContent = file_get_contents($nombreArchivo);
+
+                $fp = fsockopen($ipImpresora, 9100, $errno, $errstr, 5);
+                if ($fp) {
+                    fwrite($fp, $zplContent);
+                    fclose($fp);
+                } else {
+                    return response()->json([
+                        'code' => 500,
+                        'message' => "Error al conectar a la impresora $ipImpresora: $errstr ($errno)",
+                    ]);
+                }
             }
 
-            // Enviar a impresora Zebra por red
-            $fp = fsockopen($ipImpresora, 9100, $errno, $errstr, 5);
-            if ($fp) {
-                fwrite($fp, $zplContent);
-                fclose($fp);
-            } else {
-                return response()->json([
-                    'code' => 500,
-                    'message' => "Error al conectar a la impresora $ipImpresora: $errstr ($errno)",
-                ]);
-            }
-
-            // Limpieza correcta
             $outputs[] = $nombreArchivo;
-            $outputs[] = $zplContent; // archivo ZPL generado
+            $outputs[] = $zplContent;
 
-//            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
-//            if (file_exists($output)) unlink($output);
+            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
         }
 
         return response()->json([
