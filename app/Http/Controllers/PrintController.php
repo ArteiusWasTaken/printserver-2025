@@ -575,8 +575,8 @@ class PrintController extends Controller
             $outputs[] = $zplContent;
 
 // Limpieza
-            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
-            if (!empty($output) && file_exists($output)) unlink($output); // solo si era archivo temporal
+//            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
+//            if (!empty($output) && file_exists($output)) unlink($output); // solo si era archivo temporal
 
         }
 
