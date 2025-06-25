@@ -58,7 +58,7 @@ def main(pdf_path, zoom, printer_ip):
     # Opcional, confirma que se envió correctamente
     print("Impresión enviada a", printer_ip)
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     if len(sys.argv) < 4:
         print("Uso: pdf_to_thermal.py archivo.pdf zoom IP_IMPRESORA")
         sys.exit(1)
