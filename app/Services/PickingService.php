@@ -191,6 +191,7 @@ class PickingService
                     'area.area',
                     'documento.id',
                     'documento.no_venta',
+                    'documento.comentario',
                     'marketplace.marketplace',
                     'empresa.empresa',
                     'almacen.almacen'
@@ -282,6 +283,9 @@ class PickingService
                 $printer->text($info->area . ' / ' . $info->marketplace . "\n");
                 $printer->text($info->empresa . ' / ' . $info->almacen . "\n\n");
                 $printer->text('No. de venta / ' . $info->no_venta . "\n\n");
+                if ($info->marketplace == 'MERCADOLIBRE') {
+                    $printer->text('No. de pack / ' . $info->comentario . "\n\n");
+                }
 
                 $printer->text("Productos\n");
                 $printer->text(str_repeat('-', 48) . "\n");
