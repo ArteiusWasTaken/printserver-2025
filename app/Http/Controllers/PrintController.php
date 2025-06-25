@@ -547,21 +547,13 @@ class PrintController extends Controller
             chmod($nombreArchivo, 0777);
 
             if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
-                $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
+                $pythonScript = $extension === 'pdf' ? 'pdf_to_zpl.py' : 'image_to_zpl.py';
                 $command = 'python python/label/convert/' . $pythonScript . ' ' .
-                    escapeshellarg($nombreArchivo) . ' ' .
-                    escapeshellarg($documento->zoom_guia) . ' 2>&1';
+                    escapeshellarg($nombreArchivo) . ' 2>&1';
 
                 $output = trim(shell_exec($command));
 
-                $pythonScript2 = $extension === 'pdf' ? 'pdf_to_zpl.py' : 'image_to_zpl.py';
-                $command2 = 'python python/afa/' . $pythonScript2 . ' ' .
-                    escapeshellarg($output) . ' 2>&1';
-
-                $output2 = trim(shell_exec($command2));
-
-                // Esto ya es el contenido ZPL final
-                $zplContent = $output2;
+                $zplContent = $output;
             } else {
                 $zplContent = file_get_contents($nombreArchivo); // Ya era ZPL original
             }
