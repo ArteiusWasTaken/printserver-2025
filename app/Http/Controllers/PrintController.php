@@ -552,8 +552,8 @@ class PrintController extends Controller
                     escapeshellarg($nombreArchivo) . ' 2>&1';
 
                 $zplContent = trim(shell_exec($command));
+                $zplContent = str_replace(["\n", "\r"], '', $zplContent);
 
-// Validación rápida (opcional)
                 if (empty($zplContent) || !str_contains($zplContent, '^XA')) {
                     return response()->json([
                         'code' => 500,

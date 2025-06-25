@@ -41,5 +41,6 @@ if __name__ == "__main__":
         sys.exit(f"Archivo no encontrado: {pdf_file}")
 
     zpl_code = convert_pdf_to_zpl(pdf_file, label_width=812, label_height=1624, invert=True)
-    print(zpl_code.decode('utf-8').replace('\n', ' '))
+    clean_zpl = zpl_code.decode('utf-8').replace('\n', '').strip()
+    print(clean_zpl)
 
