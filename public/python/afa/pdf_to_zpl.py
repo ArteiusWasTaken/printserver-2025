@@ -25,7 +25,7 @@ def convert_pdf_to_zpl(pdf_path, label_width=812, label_height=1624, dpi=203, in
     with open("output.zpl", "wb") as zpl:
         zpl.write(zpl_string.encode('utf-8'))
 
-    return zpl_string.encode('utf-8')
+    return zpl_string
 
 def enviar_a_impresora(zpl, ip, puerto=9100):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -45,7 +45,6 @@ if __name__ == "__main__":
         sys.exit(f"Archivo no encontrado: {pdf_file}")
 
     zpl_code = convert_pdf_to_zpl(pdf_file, label_width=812, label_height=1624, invert=True)
-    clean_zpl = zpl_code.decode('utf-8').replace('\n', '').strip()
-    enviar_a_impresora(clean_zpl, printer_ip)
+    enviar_a_impresora(zpl_code, printer_ip)
     print(clean_zpl)
 
