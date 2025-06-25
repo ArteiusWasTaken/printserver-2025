@@ -562,7 +562,7 @@ class PrintController extends Controller
 // Enviar a impresora Zebra por red
             $fp = fsockopen($ipImpresora, 9100, $errno, $errstr, 5);
             if ($fp) {
-                fwrite($fp, $zplContent);
+                fwrite($fp, file_get_contents($zplContent));
                 fclose($fp);
             } else {
                 return response()->json([
