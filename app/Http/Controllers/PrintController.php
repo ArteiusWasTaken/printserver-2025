@@ -403,7 +403,7 @@ class PrintController extends Controller
             $outputs[] = $nombreArchivo;
             $outputs[] = $zplContent;
 
-            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
+//            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
         }
 
         return response()->json([
