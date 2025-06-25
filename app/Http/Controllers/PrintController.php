@@ -563,8 +563,6 @@ class PrintController extends Controller
                     ]);
                 }
 
-
-                $zplContent = file_get_contents($zplContent);
             } else {
                 $zplContent = file_get_contents($nombreArchivo); // Ya era ZPL original
             }
