@@ -584,8 +584,8 @@ class PrintController extends Controller
             $outputs[] = $nombreArchivo;
             $outputs[] = $output; // archivo ZPL generado
 
-            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
-            if (file_exists($output)) unlink($output);
+//            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
+//            if (file_exists($output)) unlink($output);
         }
 
         return response()->json([
