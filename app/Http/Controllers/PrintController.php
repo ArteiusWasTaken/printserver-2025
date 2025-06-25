@@ -8,6 +8,9 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Mike42\Escpos\PrintConnectors\FilePrintConnector;
+use Mike42\Escpos\Printer;
+use function PHPUnit\Framework\isEmpty;
 
 /**
  *
@@ -39,7 +42,7 @@ class PrintController extends Controller
 
         foreach ($etiquetas as $etiqueta) {
             try {
-                if ($tipo == '1') {
+                if($tipo == '1') {
                     $command = 'python python/label/' . $tamanio . '/sku_description.py ' .
                         escapeshellarg($etiqueta->codigo) . ' ' .
                         escapeshellarg($etiqueta->descripcion) . ' ' .
@@ -75,8 +78,7 @@ class PrintController extends Controller
         }
         return response()->json([
             'Respuesta' => 'Impresion Correcta'
-        ]);
-    }
+        ]);    }
 
     /**
      * @return string
@@ -222,7 +224,7 @@ class PrintController extends Controller
     {
         $data = json_decode($request->input('data'));
 
-        if (!isset($data->codigo, $data->descripcion)) {
+        if (!isset( $data->codigo, $data->descripcion)) {
             return response()->json([
                 'code' => 400,
                 'message' => 'Faltan datos requeridos: codigo o descripcion.'
@@ -301,7 +303,7 @@ class PrintController extends Controller
         $archivosImpresion = [];
         $extension = 'pdf';
 
-        if (!empty($archivos)) {
+        if (!isEmpty($archivos)) {
             $dropboxService = new DropboxService();
             foreach ($archivos as $archivo) {
                 $content = $dropboxService->downloadFile($archivo->dropbox);
@@ -331,7 +333,6 @@ class PrintController extends Controller
             $url = "https://rest.afainnova.com/logistica/envio/pendiente/documento/{$documentoId}/{$documento->id_marketplace_area}/1?token=" . $request->get('token');
 
             $response = json_decode(file_get_contents($url));
-
 
             if (!$response || $response->code !== 200) {
                 return response()->json([
@@ -364,11 +365,11 @@ class PrintController extends Controller
 
         $outputs = [];
         foreach ($archivosImpresion as $contenido) {
-            if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
-                $nombreArchivo = "python/label/" . uniqid() . '.' . $extension;
-                file_put_contents($nombreArchivo, base64_decode($contenido));
-                chmod($nombreArchivo, 0777);
+            $nombreArchivo = "python/label/" . uniqid() . '.' . $extension;
+            file_put_contents($nombreArchivo, base64_decode($contenido));
+            chmod($nombreArchivo, 0777);
 
+            if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
                 $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
                 $command = 'python3 python/afa/' . $pythonScript . ' ' .
                     escapeshellarg($nombreArchivo) . ' ' .
@@ -387,28 +388,20 @@ class PrintController extends Controller
                 }
 
             } else {
-                $nombreArchivo = "python/label/" . uniqid() . '.' . $extension;
-                file_put_contents($nombreArchivo, $contenido);
-                chmod($nombreArchivo, 0777);
-                $zplContent = $contenido;
-
                 $command = 'python3 python/afa/send_zpl_to_printer.py' . ' ' .
-                    escapeshellarg($zplContent) . ' ' .
+                    escapeshellarg($nombreArchivo) . ' ' .
                     escapeshellarg($ipImpresora) . ' 2>&1';
-
                 shell_exec($command);
-
             }
 
             $outputs[] = $nombreArchivo;
-            $outputs[] = $zplContent;
 
 //            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
         }
 
         return response()->json([
             'code' => 200,
-            'message' => 'Guías enviadas a impresión. ' . $ipImpresora,
+            'message' => 'Guías enviadas a impresión. '. $ipImpresora,
             'outputs' => $outputs,
         ]);
     }
