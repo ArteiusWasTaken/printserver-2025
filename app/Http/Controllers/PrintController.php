@@ -548,7 +548,7 @@ class PrintController extends Controller
 
             if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
                 $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_zpl.py';
-                $command = 'python python/afa/' . $pythonScript . ' ' .
+                $command = 'python3 python/afa/' . $pythonScript . ' ' .
                     escapeshellarg($nombreArchivo) . ' '.
                     escapeshellarg(0) . ' 2>&1';
 
