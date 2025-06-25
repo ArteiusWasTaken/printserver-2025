@@ -333,6 +333,7 @@ class PrintController extends Controller
 
             $response = json_decode(file_get_contents($url));
 
+
             if (!$response || $response->code !== 200) {
                 return response()->json([
                     'code' => $response->code ?? 500,
@@ -387,11 +388,10 @@ class PrintController extends Controller
                 }
 
             } else {
-                $zplContent = file_get_contents($nombreArchivo);
 
                 $fp = fsockopen($ipImpresora, 9100, $errno, $errstr, 5);
                 if ($fp) {
-                    fwrite($fp, $zplContent);
+                    fwrite($fp, $contenido);
                     fclose($fp);
                 } else {
                     return response()->json([
