@@ -554,15 +554,24 @@ class PrintController extends Controller
 
                 $output = trim(shell_exec($command));
 
-                $zplContent = $output;
+                // VALIDAR QUE EXISTE EL ARCHIVO ZPL GENERADO
+                if (!file_exists($output)) {
+                    return response()->json([
+                        'code' => 500,
+                        'message' => 'El archivo ZPL no se generó correctamente.',
+                        'output' => $output
+                    ]);
+                }
+
+                $zplContent = file_get_contents($output);
             } else {
                 $zplContent = file_get_contents($nombreArchivo); // Ya era ZPL original
             }
 
-// Enviar a impresora Zebra por red
+            // Enviar a impresora Zebra por red
             $fp = fsockopen($ipImpresora, 9100, $errno, $errstr, 5);
             if ($fp) {
-                fwrite($fp, file_get_contents($zplContent));
+                fwrite($fp, $zplContent);
                 fclose($fp);
             } else {
                 return response()->json([
@@ -571,13 +580,12 @@ class PrintController extends Controller
                 ]);
             }
 
+            // Limpieza correcta
             $outputs[] = $nombreArchivo;
-            $outputs[] = $zplContent;
+            $outputs[] = $output; // archivo ZPL generado
 
-// Limpieza
-//            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
-//            if (!empty($output) && file_exists($output)) unlink($output); // solo si era archivo temporal
-
+            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
+            if (file_exists($output)) unlink($output);
         }
 
         return response()->json([
