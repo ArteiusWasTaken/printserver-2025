@@ -25,8 +25,8 @@ def image_to_zpl(image: Image.Image, dpi=203) -> str:
 
     hex_data = bitmap.hex().upper()
 
-    label_width = 4 * dpi  # 1200 puntos (4")
-    label_height = 8 * dpi # 2400 puntos (8")
+    label_width = 4 * dpi  # Ancho: 812 puntos (4" x 203 dpi)
+    label_height = 8 * dpi # Alto: 1624 puntos (8" x 203 dpi)
 
     zpl = f"""
 ^XA
@@ -43,20 +43,17 @@ def enviar_a_impresora(zpl, ip, puerto=9100):
         s.sendall(zpl.encode('utf-8'))
 
 def main(pdf_path, zoom, printer_ip):
-    dpi = 300
+    dpi = 203  # DPI ajustado a estándar Zebra
     images = convert_from_path(pdf_path, dpi=dpi)
     img = images[0]
 
-    if int(zoom) == 0:
-        img = img.resize((4*dpi, 8*dpi))
+    # Asegura tamaño EXACTO 4"x8"
+    img = img.resize((4*dpi, 8*dpi), Image.LANCZOS)
 
     zpl = image_to_zpl(img, dpi)
 
-    # Envía directo a la impresora
     enviar_a_impresora(zpl, printer_ip)
-
-    # Opcional, confirma que se envió correctamente
-    print("Impresión enviada a", printer_ip)
+    print("Impresión enviada correctamente a:", printer_ip)
 
 if __name__ == "__main__":
     if len(sys.argv) < 4:
