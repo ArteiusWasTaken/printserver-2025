@@ -122,7 +122,6 @@ class PrintController extends Controller
      */
     public function etiquetasSerie(Request $request): JsonResponse
     {
-        $output = '';
         $data = json_decode($request->input('data'));
         $etiquetas = [];
         $cantidad = (int)explode('.', $data->cantidad)[0];
@@ -184,7 +183,7 @@ class PrintController extends Controller
         }
 
         return response()->json([
-            'Respuesta' => 'Impresion Correcta'
+            'Respuesta' => 'Impresion Correcta', $data, $impresora, $modelo, $etiquetas
         ]);
     }
 
