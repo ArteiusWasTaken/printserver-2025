@@ -1,6 +1,7 @@
 import os
 import sys
 from zebrafy import ZebrafyPDF
+import socket
 
 def convert_pdf_to_zpl(pdf_path, label_width=812, label_height=1624, dpi=203, invert=False):
     with open(pdf_path, "rb") as pdf:
