@@ -22,17 +22,15 @@ def convert_pdf_to_zpl(pdf_path, label_width=812, label_height=1624, dpi=203, in
             split_pages=True,
         ).to_zpl()
 
-    # Guardar archivo (opcional)
     with open("output.zpl", "wb") as zpl:
         zpl.write(zpl_string.encode('utf-8'))
 
-    # Retorna bytes, no string
     return zpl_string.encode('utf-8')
 
 def enviar_a_impresora(zpl, ip, puerto=9100):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((ip, puerto))
-        s.sendall(zpl.encode('utf-8'))
+        s.sendall(zpl)
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
