@@ -403,7 +403,11 @@ class PrintController extends Controller
                         ['exception' => $e->getMessage(), 'line' => self::logLocation()]
                     );
                     $outputs[] = 'exception: ' . $e->getMessage(). ' line: ' .self::logLocation();
-
+                    return response()->json([
+                        'code' => 200,
+                        'message' => 'NO. '. $ipImpresora,
+                        'outputs' => $outputs,
+                    ]);
                 }
             }
 
