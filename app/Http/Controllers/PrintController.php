@@ -388,18 +388,22 @@ class PrintController extends Controller
                 }
 
             } else {
-                $command = 'python3 python/afa/send_zpl_to_printer.py ' .
-                    escapeshellarg($nombreArchivo) . ' ' .
-                    escapeshellarg($ipImpresora) . ' 2>&1';
+                try {
+                    $socket = fsockopen($ipImpresora, 9100, $errno, $errstr, 5);
+                    if (!$socket) {
+                        throw new Exception("No se pudo conectar a la impresora: $errstr ($errno)");
+                    }
 
-                $output = shell_exec($command);
+                    fwrite($socket, $contenido);
+                    fclose($socket);
+                } catch (Exception $e) {
+                    ErrorLoggerService::logger(
+                        'Error en etiquetas. Impresora: ' . $ipImpresora,
+                        'PrintController',
+                        ['exception' => $e->getMessage(), 'line' => self::logLocation()]
+                    );
+                    $outputs[] = 'exception: ' . $e->getMessage(). ' line: ' .self::logLocation();
 
-                if (!str_contains($output, '✅')) {
-                    return response()->json([
-                        'code' => 500,
-                        'message' => 'Error al enviar archivo ZPL a la impresora',
-//                        'output' => $output,
-                    ]);
                 }
             }
 
