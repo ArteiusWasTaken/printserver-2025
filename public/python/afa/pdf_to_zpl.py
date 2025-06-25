@@ -28,12 +28,17 @@ def convert_pdf_to_zpl(pdf_path, label_width=812, label_height=1624, dpi=203, in
     # Retorna bytes, no string
     return zpl_string.encode('utf-8')
 
+def enviar_a_impresora(zpl, ip, puerto=9100):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((ip, puerto))
+        s.sendall(zpl.encode('utf-8'))
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 3:
         sys.exit("Uso: python pdf_to_zpl.py <ruta/relativa/al/pdf>")
 
     relative_path = sys.argv[1]
+    printer_ip = sys.argv[2]
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     pdf_file = os.path.abspath(os.path.join(project_root, relative_path))
 
@@ -42,5 +47,6 @@ if __name__ == "__main__":
 
     zpl_code = convert_pdf_to_zpl(pdf_file, label_width=812, label_height=1624, invert=True)
     clean_zpl = zpl_code.decode('utf-8').replace('\n', '').strip()
+    enviar_a_impresora(clean_zpl, printer_ip)
     print(clean_zpl)
 
