@@ -40,7 +40,7 @@ def main(pdf_path, zoom):
     # Ahora imprime directamente el contenido ZPL generado
     print(zpl)
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Uso: pdf_to_thermal.py archivo.pdf zoom")
         sys.exit(1)
