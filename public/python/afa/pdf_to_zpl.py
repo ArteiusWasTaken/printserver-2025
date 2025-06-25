@@ -2,7 +2,7 @@ import os
 import sys
 from zebrafy import ZebrafyPDF
 
-def convert_pdf_to_zpl(pdf_path, label_width=406, label_height=203, dpi=203, invert=False):
+def convert_pdf_to_zpl(pdf_path, label_width=812, label_height=1624, dpi=203, invert=False):
     with open(pdf_path, "rb") as pdf:
         zpl_string = ZebrafyPDF(
             pdf.read(),
@@ -21,12 +21,13 @@ def convert_pdf_to_zpl(pdf_path, label_width=406, label_height=203, dpi=203, inv
             split_pages=True,
         ).to_zpl()
 
-    with open("output.zpl", "w") as zpl:
-        zpl.write(zpl_string)
+    # Guardar archivo (opcional)
+    with open("output.zpl", "wb") as zpl:
+        zpl.write(zpl_string.encode('utf-8'))
 
-    zpl_string = zpl_string.replace('\n', '')
+    # Retorna bytes, no string
+    return zpl_string.encode('utf-8')
 
-    return zpl_string
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -39,5 +40,5 @@ if __name__ == "__main__":
     if not os.path.exists(pdf_file):
         sys.exit(f"Archivo no encontrado: {pdf_file}")
 
-    zpl_code = convert_pdf_to_zpl(pdf_file, label_width=406, label_height=203, invert=True)
+    zpl_code = convert_pdf_to_zpl(pdf_file, label_width=812, label_height=1624, invert=True)
     print(zpl_code)
