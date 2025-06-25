@@ -552,18 +552,19 @@ class PrintController extends Controller
                     escapeshellarg($nombreArchivo) . ' '.
                     escapeshellarg(0) . ' 2>&1';
 
-                $output = trim(shell_exec($command));
+                $zplContent = trim(shell_exec($command));
 
-                // VALIDAR QUE EXISTE EL ARCHIVO ZPL GENERADO
-                if (!file_exists($output)) {
+// Validación rápida (opcional)
+                if (empty($zplContent) || !str_contains($zplContent, '^XA')) {
                     return response()->json([
                         'code' => 500,
-                        'message' => 'El archivo ZPL no se generó correctamente.',
-                        'output' => $output
+                        'message' => 'No se generó correctamente la cadena ZPL.',
+                        'output' => $zplContent
                     ]);
                 }
 
-                $zplContent = file_get_contents($output);
+
+                $zplContent = file_get_contents($zplContent);
             } else {
                 $zplContent = file_get_contents($nombreArchivo); // Ya era ZPL original
             }
@@ -582,7 +583,7 @@ class PrintController extends Controller
 
             // Limpieza correcta
             $outputs[] = $nombreArchivo;
-            $outputs[] = $output; // archivo ZPL generado
+            $outputs[] = $zplContent; // archivo ZPL generado
 
 //            if (file_exists($nombreArchivo)) unlink($nombreArchivo);
 //            if (file_exists($output)) unlink($output);

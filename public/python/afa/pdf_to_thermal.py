@@ -1,14 +1,11 @@
 import sys
-import uuid
 from pdf2image import convert_from_path
 from PIL import Image
-import os
 
 def image_to_zpl(image: Image.Image) -> str:
-    image = image.convert("1")  # Convertir a blanco y negro
+    image = image.convert("1")  # Blanco y negro
     width, height = image.size
     bytes_per_row = (width + 7) // 8
-    total_bytes = bytes_per_row * height
     bitmap = bytearray()
 
     for y in range(height):
@@ -30,23 +27,21 @@ def image_to_zpl(image: Image.Image) -> str:
     return zpl
 
 def main(pdf_path, zoom):
-    images = convert_from_path(pdf_path, dpi=203)
-    output_path = str(uuid.uuid4()) + ".zpl"
+    images = convert_from_path(pdf_path, dpi=300)
 
-    # Solo tomamos la primera página
+    # Solo primera página
     img = images[0]
 
     if int(zoom) == 0:
-        img = img.resize((576, 288))  # Ajuste opcional
+        img = img.resize((576, 288))  # Opcional
 
     zpl = image_to_zpl(img)
-    with open(output_path, "w") as f:
-        f.write(zpl)
 
-    print(output_path)
+    # Ahora imprime directamente el contenido ZPL generado
+    print(zpl)
 
-if __name__ == "__main__":
+if _name_ == "_main_":
     if len(sys.argv) < 3:
         print("Uso: pdf_to_thermal.py archivo.pdf zoom")
         sys.exit(1)
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1], sys.argv[2])
