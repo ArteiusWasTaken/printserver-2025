@@ -46,5 +46,5 @@ if __name__ == "__main__":
 
     zpl_code = convert_pdf_to_zpl(pdf_file, label_width=812, label_height=1624, invert=True)
     enviar_a_impresora(zpl_code, printer_ip)
-    print(clean_zpl)
+    print(zpl_code)
 
