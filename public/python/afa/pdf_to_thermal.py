@@ -1,8 +1,9 @@
 import sys
 from pdf2image import convert_from_path
 from PIL import Image
+import socket
 
-def image_to_zpl(image: Image.Image) -> str:
+def image_to_zpl(image: Image.Image, dpi=203) -> str:
     image = image.convert("1")  # Blanco y negro
     width, height = image.size
     bytes_per_row = (width + 7) // 8
@@ -23,25 +24,42 @@ def image_to_zpl(image: Image.Image) -> str:
             bitmap.append(row)
 
     hex_data = bitmap.hex().upper()
-    zpl = f"^XA^FO0,0^GFA,{len(bitmap)},{len(bitmap)},{bytes_per_row},{hex_data}^XZ"
+
+    label_width = 4 * dpi  # 1200 puntos (4")
+    label_height = 8 * dpi # 2400 puntos (8")
+
+    zpl = f"""
+^XA
+^PW{label_width}
+^LL{label_height}
+^FO0,0^GFA,{len(bitmap)},{len(bitmap)},{bytes_per_row},{hex_data}
+^XZ
+""".strip()
     return zpl
 
-def main(pdf_path, zoom):
-    images = convert_from_path(pdf_path, dpi=300)
+def enviar_a_impresora(zpl, ip, puerto=9100):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((ip, puerto))
+        s.sendall(zpl.encode('utf-8'))
 
-    # Solo primera página
+def main(pdf_path, zoom, printer_ip):
+    dpi = 300
+    images = convert_from_path(pdf_path, dpi=dpi)
     img = images[0]
 
     if int(zoom) == 0:
-        img = img.resize((576, 288))  # Opcional
+        img = img.resize((4*dpi, 8*dpi))
 
-    zpl = image_to_zpl(img)
+    zpl = image_to_zpl(img, dpi)
 
-    # Ahora imprime directamente el contenido ZPL generado
-    print(zpl)
+    # Envía directo a la impresora
+    enviar_a_impresora(zpl, printer_ip)
 
-if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Uso: pdf_to_thermal.py archivo.pdf zoom")
+    # Opcional, confirma que se envió correctamente
+    print("Impresión enviada a", printer_ip)
+
+if _name_ == "_main_":
+    if len(sys.argv) < 4:
+        print("Uso: pdf_to_thermal.py archivo.pdf zoom IP_IMPRESORA")
         sys.exit(1)
-    main(sys.argv[1],sys.argv[2])
+    main(sys.argv[1], sys.argv[2], sys.argv[3])
