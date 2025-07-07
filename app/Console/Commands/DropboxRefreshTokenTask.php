@@ -5,7 +5,6 @@ namespace App\Console\Commands;
 use App\Services\DropboxService;
 use Exception;
 use Illuminate\Console\Command;
-use Illuminate\Http\JsonResponse;
 
 /**
  *
@@ -45,9 +44,8 @@ class DropboxRefreshTokenTask extends Command
     public function handle(): int
     {
         set_time_limit(0);
-        $dropbox = new DropboxService();
         try {
-            $token = $dropbox->refreshAccessToken();
+            $token = $this->dropboxService->refreshAccessToken();
             $this->info('Token actualizado correctamente: ' . $token);
             return 0; // Éxito
         } catch (Exception $e) {
@@ -55,4 +53,5 @@ class DropboxRefreshTokenTask extends Command
             return 1; // Error
         }
     }
+
 }

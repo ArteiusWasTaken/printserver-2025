@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Mike42\Escpos\PrintConnectors\FilePrintConnector;
 use Mike42\Escpos\Printer;
+use function PHPUnit\Framework\isEmpty;
 
 /**
  *
@@ -22,7 +23,6 @@ class PrintController extends Controller
      */
     public function etiquetas(Request $request): JsonResponse
     {
-        $output = '';
         $tipo = $request->input('tipo');
         $data = json_decode($request->input('data'));
 
@@ -42,13 +42,17 @@ class PrintController extends Controller
 
         foreach ($etiquetas as $etiqueta) {
             try {
-                $command = 'python python/label/' . $tamanio . '/sku_description.py ' .
-                    escapeshellarg($etiqueta->codigo) . ' ' .
-                    escapeshellarg($etiqueta->descripcion) . ' ' .
-                    escapeshellarg($etiqueta->cantidad) . ' ' .
-                    escapeshellarg($etiqueta->extra ?? '') . ' 2>&1';
+                if($tipo == '1') {
+                    $command = 'python python/label/' . $tamanio . '/sku_description.py ' .
+                        escapeshellarg($etiqueta->codigo) . ' ' .
+                        escapeshellarg($etiqueta->descripcion) . ' ' .
+                        escapeshellarg($etiqueta->cantidad) . ' ' .
+                        escapeshellarg($etiqueta->extra ?? '') . ' 2>&1';
 
-                $output = trim(shell_exec($command));
+                    $output = trim(shell_exec($command));
+                } else {
+                    $output = $etiqueta->archivo;
+                }
 
                 $socket = fsockopen($ip, $port, $errno, $errstr, 5);
                 if (!$socket) {
@@ -72,8 +76,9 @@ class PrintController extends Controller
                 ], 500);
             }
         }
-        return response()->json([$output]);
-    }
+        return response()->json([
+            'Respuesta' => 'Impresion Correcta'
+        ]);    }
 
     /**
      * @return string
@@ -87,189 +92,6 @@ class PrintController extends Controller
         return ('<br>' . $sis . $ini . $trace['line'] . $fin);
     }
 
-    /**
-     * @return JsonResponse
-     * @noinspection PhpUnused
-     */
-    public function tickets(): JsonResponse
-    {
-        try {
-            $ip = '192.168.15.73';
-            $port = 9100;
-
-            $socket = fsockopen($ip, $port, $errno, $errstr, 5);
-            if (!$socket) {
-                throw new Exception("No se pudo conectar a la impresora: $errstr ($errno)");
-            }
-
-            $commands = '';
-
-            // Inicialización básica para GHIA
-            $commands .= chr(27) . '@'; // Reset printer
-            $commands .= chr(27) . 'R' . chr(0); // Set internacional character set USA
-            $commands .= chr(27) . 't' . chr(0); // Codificación UTF-8
-
-            // Encabezado del ticket
-            $commands .= chr(27) . 'a' . chr(1); // Centrar texto
-            $commands .= "MI EMPRESA\n";
-            $commands .= "DIRECCION\n";
-            $commands .= "TEL: 123-456-7890\n";
-            $commands .= "-----------------------\n";
-
-            // Detalles del ticket
-            $commands .= chr(27) . 'a' . chr(0); // Alinear izquierda
-            $commands .= 'Fecha: ' . date('d/m/Y H:i:s') . "\n";
-            $commands .= "Ticket #: 12345\n";
-            $commands .= "-----------------------\n";
-            $commands .= "PRODUCTO       CANT  TOTAL\n";
-            $commands .= "-----------------------\n";
-            $commands .= "Producto 1     1    $10.00\n";
-            $commands .= "Producto 2     2    $20.00\n";
-            $commands .= "-----------------------\n";
-            $commands .= "TOTAL:        $30.00\n";
-            $commands .= "-----------------------\n\n";
-
-            // CÓDIGO DE BARRAS CODE128 PARA GHIA GTP-801
-            $barcodeData = 'ABC123456789'; // Datos alfanuméricos
-
-            // Configuración específica para GHIA:
-            $commands .= chr(29) . 'h' . chr(100); // Altura (1-255 dots)
-            $commands .= chr(29) . 'w' . chr(2);   // Ancho (1-6, 2 es estándar)
-            $commands .= chr(29) . 'f' . chr(0);   // Fuente del texto (0=A, 1=B)
-            $commands .= chr(29) . 'H' . chr(2);   // Posición del texto (2=debajo)
-
-            // Comando CODE128 modificado para GHIA:
-            $len = strlen($barcodeData);
-            $commands .= chr(29) . 'k' . chr(73) . chr($len) . $barcodeData;
-
-            /*
-            Estructura especial para GHIA GTP-801:
-            1D 6B 49 [n] [data]
-            Donde:
-            - 1D 6B: Inicio código de barras
-            - 49: Selecciona CODE128 (73 en decimal)
-            - [n]: Longitud de los datos (1 byte)
-            - [data]: Los datos del código
-            */
-
-            $commands .= "\n\n\n\n"; // Espacios después del código
-
-            // Pie del ticket
-            $commands .= chr(27) . 'a' . chr(1); // Centrar
-            $commands .= "Gracias por su compra\n";
-            $commands .= chr(27) . 'a' . chr(0); // Alinear izquierda
-            $commands .= "-----------------------\n";
-
-            // Corte de papel para GHIA
-            $commands .= chr(29) . 'V' . chr(65) . chr(0); // Corte parcial
-            // Alternativa: $commands .= chr(29)."V".chr(66).chr(0); // Corte completo
-
-            // Enviar comandos
-            fwrite($socket, $commands);
-            fclose($socket);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Ticket impreso',
-                'hex_sent' => bin2hex($commands) // Para depuración
-            ]);
-
-            // CÓDIGO DE BARRAS (Versión funcional para TM-T88V)
-            /* EAN 13 funciona
-            $barcodeData = "123456789012"; // 12 dígitos para EAN-13
-
-            // Configuración del código de barras
-            $commands .= chr(29)."h".chr(100); // Altura (dots) - valor entre 1-255
-            $commands .= chr(29)."w".chr(3);   // Ancho (1-6) - 3 es un buen valor medio
-            $commands .= chr(29)."H".chr(2);   // Posición del texto: 2 (debajo del barcode)
-            $commands .= chr(29)."k".chr(4).$barcodeData.chr(0); // EAN-13 (código 4)
-            */
-
-        } catch (Exception $exception) {
-            return response()->json([
-                'success' => false,
-                'error' => 'No se pudo imprimir: ' . $exception->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * @param $barcode
-     * @return JsonResponse
-     * @noinspection PhpUnused
-     */
-    public function ticketsUsb($barcode): JsonResponse
-    {
-        try {
-            // 1. Configurar conector - elige una opción:
-
-            // a) Para impresora USB directa (Linux)
-            $connector = new FilePrintConnector('/dev/usb/lp0');
-
-            // b) Para impresora de red
-            // $connector = new NetworkPrintConnector("192.168.1.100", 9100);
-
-            // 2. Crear instancia de impresora
-            $printer = new Printer($connector);
-
-            // 3. Configuración inicial
-            $printer->initialize();
-            $printer->setJustification(Printer::JUSTIFY_CENTER);
-
-            // 4. Encabezado del ticket
-            $printer->text("MI EMPRESA\n");
-            $printer->text("DIRECCION\n");
-            $printer->text("TEL: 123-456-7890\n");
-            $printer->text("----------------\n");
-
-            // 5. Detalles del ticket
-            // $printer->setJustification(Printer::JUSTIFY_LEFT);
-            $printer->text('Fecha: ' . date('d/m/Y H:i:s') . "\n");
-            $printer->text("Ticket #: 12345\n");
-            $printer->text("----------------\n");
-
-            // 6. Configurar código de barras (sin constantes)
-
-            // Calcular ancho dinámico según la longitud del código
-            $length = strlen($barcode);
-
-            // Establecer un ancho base (entre 1 y 6, recomendado por la mayoría de impresoras)
-            $width = match (true) {
-                $length >= 16 => 1,
-                $length >= 10 => 2,
-                $length >= 7 => 3,
-                $length >= 5 => 4,
-                $length == 4 => 5,
-                default => 6,
-            };
-
-            // Configurar CODE39 (69 es el tipo numérico para CODE39)
-            $printer->setBarcodeHeight(65);
-            $printer->setBarcodeWidth($width);
-            $printer->setBarcodeTextPosition(2);
-
-            $printer->barcode($barcode, 69);
-
-            // 7. Pie del ticket
-            $printer->feed(2);
-            $printer->setJustification(Printer::JUSTIFY_CENTER);
-            $printer->text("Gracias por su compra\n");
-
-            // 8. Cortar papel (formato Epson)
-            $printer->cut(Printer::CUT_PARTIAL);
-
-            // 9. Cerrar conexión
-            $printer->close();
-
-            return response()->json(['success' => true, 'message' => 'Ticket impreso', 'tamanio' => $width]);
-
-        } catch (Exception $exception) {
-            return response()->json([
-                'success' => false,
-                'error' => 'No se pudo imprimir: ' . $exception->getMessage()
-            ], 500);
-        }
-    }
 
     /**
      * @return JsonResponse
@@ -283,7 +105,7 @@ class PrintController extends Controller
             ->toArray();
 
         $empresas = DB::table('empresa')
-            ->select('empresa', 'bd')
+            ->select('empresa', 'id')
             ->where('id', '<>', '')
             ->get()
             ->toArray();
@@ -301,7 +123,6 @@ class PrintController extends Controller
      */
     public function etiquetasSerie(Request $request): JsonResponse
     {
-        $output = '';
         $data = json_decode($request->input('data'));
         $etiquetas = [];
         $cantidad = (int)explode('.', $data->cantidad)[0];
@@ -362,7 +183,9 @@ class PrintController extends Controller
             ]);
         }
 
-        return response()->json([$output]);
+        return response()->json([
+            'Respuesta' => 'Impresion Correcta', $data, $impresora, $modelo, $etiquetas
+        ]);
     }
 
     private function imprimirEtiqueta($impresora, $etiquetas): bool|string
@@ -401,10 +224,10 @@ class PrintController extends Controller
     {
         $data = json_decode($request->input('data'));
 
-        if (!isset($data->serie, $data->codigo, $data->descripcion)) {
+        if (!isset( $data->codigo, $data->descripcion)) {
             return response()->json([
                 'code' => 400,
-                'message' => 'Faltan datos requeridos: serie, codigo o descripcion.'
+                'message' => 'Faltan datos requeridos: codigo o descripcion.'
             ]);
         }
 
@@ -480,21 +303,27 @@ class PrintController extends Controller
         $archivosImpresion = [];
         $extension = 'pdf';
 
-        if ($archivos->isNotEmpty()) {
+        if ($archivos->count() > 0) {
             $dropboxService = new DropboxService();
             foreach ($archivos as $archivo) {
-                $resp = $dropboxService->downloadFile($archivo->dropbox);
+                $content = $dropboxService->downloadFile($archivo->dropbox);
 
-                if (empty($resp['success'])) {
+                if (empty($content)) {
                     return response()->json([
                         'code' => 500,
-                        'message' => 'Error al obtener archivo: ' . $archivo->nombre .
-                            (isset($resp['message']) ? ' - ' . $resp['message'] : ''),
-                        'error' => $resp,
+                        'message' => 'Error al obtener archivo: ' . $archivo->nombre,
+                        'error' => 'Contenido vacío o nulo',
                     ]);
                 }
 
-                $archivosImpresion[] = base64_encode($resp['content']);
+                if (!is_string($content)) {
+                    return response()->json([
+                        'code' => 500,
+                        'message' => 'Contenido inválido para archivo: ' . $archivo->nombre,
+                    ]);
+                }
+
+                $archivosImpresion[] = base64_encode($content);
 
                 if (str_ends_with($archivo->nombre, '.zpl')) {
                     $extension = 'zpl';
@@ -542,25 +371,54 @@ class PrintController extends Controller
 
             if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
                 $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
-                $output = trim(shell_exec("python3 python/label/convert/{$pythonScript} '{$nombreArchivo}' '{$documento->zoom_guia}' 2>&1"));
-                $archivoFinal = $output;
+                $command = 'python3 python/afa/' . $pythonScript . ' ' .
+                    escapeshellarg($nombreArchivo) . ' ' .
+                    escapeshellarg(0) . ' ' .
+                    escapeshellarg($ipImpresora) . ' 2>&1';
+
+
+                $zplContent = trim(shell_exec($command));
+
+                if (empty($zplContent) || !str_contains($zplContent, '^XA')) {
+                    return response()->json([
+                        'code' => 500,
+                        'message' => 'No se generó correctamente la cadena ZPL.',
+                        'output' => $zplContent
+                    ]);
+                }
+
             } else {
-                $archivoFinal = $nombreArchivo;
+                try {
+                    $socket = fsockopen($ipImpresora, 9100, $errno, $errstr, 5);
+                    if (!$socket) {
+                        throw new Exception("No se pudo conectar a la impresora: $errstr ($errno)");
+                    }
+
+                    fwrite($socket, $contenido);
+                    fclose($socket);
+                } catch (Exception $e) {
+                    ErrorLoggerService::logger(
+                        'Error en etiquetas. Impresora: ' . $ipImpresora,
+                        'PrintController',
+                        ['exception' => $e->getMessage(), 'line' => self::logLocation()]
+                    );
+                    $outputs[] = 'exception: ' . $e->getMessage(). ' line: ' .self::logLocation();
+                    return response()->json([
+                        'code' => 200,
+                        'message' => 'NO. '. $ipImpresora,
+                        'outputs' => $outputs,
+                    ]);
+                }
             }
 
-            // Enviar a la impresora usando lp (local), puedes adaptar con fsockopen si es red
-            $modo = ($extension === 'zpl' || $marketplace->marketplace === 'MERCADOLIBRE') ? '-o raw' : '';
-            exec("lp -d {$ipImpresora} -n 1 {$modo} {$archivoFinal}");
+            $outputs[] = $nombreArchivo;
 
-            $outputs[] = $archivoFinal;
-
-            if (file_exists($archivoFinal)) unlink($archivoFinal);
             if (file_exists($nombreArchivo)) unlink($nombreArchivo);
         }
 
         return response()->json([
             'code' => 200,
-            'message' => 'Guías enviadas a impresión.',
+            'message' => 'Guías enviadas a impresión. '. $ipImpresora,
             'outputs' => $outputs,
         ]);
     }
