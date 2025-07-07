@@ -42,7 +42,7 @@ class DropboxRefreshTokenTask extends Command
     /**
      * Execute the console command.
      */
-    public function handle(): JsonResponse
+    public function handle()
     {
         set_time_limit(0);
         $dropbox = new DropboxService();
