@@ -313,6 +313,7 @@ class PrintController extends Controller
                         'code' => 500,
                         'message' => 'Error al obtener archivo: ' . $archivo->nombre,
                         'error' => 'Contenido vacío o nulo',
+                        'archivo' => $archivo
                     ]);
                 }
 
@@ -383,7 +384,8 @@ class PrintController extends Controller
                     return response()->json([
                         'code' => 500,
                         'message' => 'No se generó correctamente la cadena ZPL.',
-                        'output' => $zplContent
+                        'output' => $zplContent,
+                        'command' => $command
                     ]);
                 }
 
