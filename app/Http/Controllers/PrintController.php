@@ -371,7 +371,16 @@ class PrintController extends Controller
             chmod($nombreArchivo, 0777);
 
             if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
-                $zoom = ($marketplace->marketplace === 'MLG') ? 0.4 : 1; // 0.4 = 40%, 1 = todo
+                $zoom = 1;
+                // Recorte por izquierda para MLG
+                if ($marketplace->marketplace === 'MLG') {
+                    $zoom = 0.4;
+                }
+                // Divide en 3 bloques horizontales para ELEKTRA
+                if ($marketplace->marketplace === 'ELEKTRA') {
+                    $zoom = 3;
+                }
+
                 $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
                 $command = 'python3 python/afa/' . $pythonScript . ' ' .
                     escapeshellarg($nombreArchivo) . ' ' .
