@@ -4,7 +4,7 @@ from PIL import Image
 import socket
 
 def image_to_zpl(image: Image.Image, dpi=203) -> str:
-    image = image.convert("1")  # Blanco y negro
+    image = image.convert("1")
     width, height = image.size
     bytes_per_row = (width + 7) // 8
     bitmap = bytearray()
@@ -25,8 +25,8 @@ def image_to_zpl(image: Image.Image, dpi=203) -> str:
 
     hex_data = bitmap.hex().upper()
 
-    label_width = 4 * dpi  # Ancho: 812 puntos (4" x 203 dpi)
-    label_height = 8 * dpi # Alto: 1624 puntos (8" x 203 dpi)
+    label_width = 4 * dpi
+    label_height = 8 * dpi
 
     zpl = f"""
 ^XA
@@ -43,15 +43,23 @@ def enviar_a_impresora(zpl, ip, puerto=9100):
         s.sendall(zpl.encode('utf-8'))
 
 def main(pdf_path, zoom, printer_ip):
-    dpi = 203  # DPI ajustado a estándar Zebra
+    dpi = 203
     images = convert_from_path(pdf_path, dpi=dpi)
     img = images[0]
 
-    # Asegura tamaño EXACTO 4"x8"
+    # El parámetro zoom ahora controla el recorte de la izquierda
+    try:
+        crop_percent = float(zoom)
+        if crop_percent < 1.0:
+            w, h = img.size
+            img = img.crop((0, 0, int(w * crop_percent), h))
+    except Exception as e:
+        # Si no es un número válido, no recorta nada
+        pass
+
     img = img.resize((4*dpi, 8*dpi), Image.LANCZOS)
 
     zpl = image_to_zpl(img, dpi)
-
     enviar_a_impresora(zpl, printer_ip)
     print("Impresión enviada correctamente a:", printer_ip)
 
@@ -59,4 +67,4 @@ if __name__ == "__main__":
     if len(sys.argv) < 4:
         print("Uso: pdf_to_thermal.py archivo.pdf zoom IP_IMPRESORA")
         sys.exit(1)
-    main(sys.argv[1], sys.argv[2],sys.argv[3])
+    main(sys.argv[1], sys.argv[2], sys.argv[3])

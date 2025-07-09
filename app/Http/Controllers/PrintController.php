@@ -371,10 +371,11 @@ class PrintController extends Controller
             chmod($nombreArchivo, 0777);
 
             if ($extension !== 'zpl' && $marketplace->marketplace !== 'MERCADOLIBRE') {
+                $zoom = ($marketplace->marketplace === 'MLG') ? 0.5 : 1; // 0.4 = 40%, 1 = todo
                 $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
                 $command = 'python3 python/afa/' . $pythonScript . ' ' .
                     escapeshellarg($nombreArchivo) . ' ' .
-                    escapeshellarg(0) . ' ' .
+                    escapeshellarg($zoom) . ' ' .
                     escapeshellarg($ipImpresora) . ' 2>&1';
 
 
