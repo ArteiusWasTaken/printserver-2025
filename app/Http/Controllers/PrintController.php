@@ -38,11 +38,11 @@ class PrintController extends Controller
         $tamanio = $impresora->tamanio;
         $port = 9100;
 
-        $etiquetas = ($tipo == '1' && !empty($data->etiquetas)) ? $data->etiquetas : [$data];
+        $etiquetas = ((int)$tipo === 1 && !empty($data->etiquetas)) ? $data->etiquetas : [$data];
 
         foreach ($etiquetas as $etiqueta) {
             try {
-                if($tipo == '1') {
+                if ((int)$tipo === 1) {
                     $command = 'python python/label/' . $tamanio . '/sku_description.py ' .
                         escapeshellarg($etiqueta->codigo) . ' ' .
                         escapeshellarg($etiqueta->descripcion) . ' ' .
@@ -78,7 +78,8 @@ class PrintController extends Controller
         }
         return response()->json([
             'Respuesta' => 'Impresion Correcta'
-        ]);    }
+        ]);
+    }
 
     /**
      * @return string
