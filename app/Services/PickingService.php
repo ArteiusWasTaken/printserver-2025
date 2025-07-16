@@ -354,7 +354,7 @@ class PickingService
                     DB::table('seguimiento')->insert([
                         'id_documento' => $documento->id,
                         'id_usuario' => 1,
-                        'seguimiento' => 'Error al imprimir el picking.'
+                        'seguimiento' => 'Error al imprimir el picking: ' . $errorMsg,
                     ]);
                 }
 
