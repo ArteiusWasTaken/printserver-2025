@@ -347,12 +347,12 @@ class PickingService
                     str_contains($errorMsg, 'Bad file descriptor') ||
                     str_contains($errorMsg, 'Failed to write')
                 ) {
-                    DB::table('documento')->where('id', $documento['id'])->update([
-                        'picking' => 1
+                    DB::table('documento')->where('id', $documento->id)->update([
+                        'picking' => 0
                     ]);
 
                     DB::table('seguimiento')->insert([
-                        'id_documento' => $documento['id'],
+                        'id_documento' => $documento->id,
                         'id_usuario' => 1,
                         'seguimiento' => 'Error al imprimir el picking.'
                     ]);
