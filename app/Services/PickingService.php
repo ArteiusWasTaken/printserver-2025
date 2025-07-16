@@ -246,7 +246,7 @@ class PickingService
             $seguimientos = DB::table('seguimiento')
                 ->join('usuario', 'seguimiento.id_usuario', '=', 'usuario.id')
                 ->where('seguimiento.id_documento', $documento->id)
-                ->where('seguimiento.id_usuario', '!=' , 1)
+                ->where('seguimiento.id_usuario', '!=', 1)
                 ->select('seguimiento.*', 'usuario.nombre')
                 ->orderBy('seguimiento.created_at', 'desc')
                 ->limit(2)
@@ -308,7 +308,7 @@ class PickingService
                 if (empty($seguimientos)) {
                     $printer->text('Sin Seguimientos' . "\n");
                     $printer->text(str_repeat('-', 48) . "\n");
-                }else{
+                } else {
                     foreach ($seguimiento as $s) {
                         $printer->text($s->usuario . "\n");
                         $printer->text($s->seguimiento . "\n");
