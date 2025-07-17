@@ -378,9 +378,9 @@ class PrintController extends Controller
                     $zoom = 0.4;
                 }
                 // Divide en 3 bloques horizontales para ELEKTRA
-                if ($marketplace->marketplace === 'ELEKTRA') {
-                    $zoom = 3;
-                }
+//                if ($marketplace->marketplace === 'ELEKTRA') {
+//                    $zoom = 3;
+//                }
 
                 $pythonScript = $extension === 'pdf' ? 'pdf_to_thermal.py' : 'image_to_thermal.py';
                 $command = 'python3 python/afa/' . $pythonScript . ' ' .
