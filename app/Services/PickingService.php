@@ -48,7 +48,7 @@ class PickingService
                     ->where('documento.autorizado', 1)
                     ->where('documento.problema', 0)
                     ->where('documento.picking', 0)
-                    ->where('documento.packing_by', 0)
+                    ->where('documento.picking_by', 0)
                     ->whereYear('documento.created_at', date('Y'))
                     ->where('impresora.servidor', $servidor)
                     ->where(function ($query) {
