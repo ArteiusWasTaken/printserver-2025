@@ -351,20 +351,13 @@ class PickingService
                         'picking' => 0
                     ]);
 
-//                    DB::table('seguimiento')->insert([
-//                        'id_documento' => $documento->id,
-//                        'id_usuario' => 1,
-//                        'seguimiento' => 'Error al imprimir el picking: ' . $errorMsg,
-//                    ]);
                 }
 
                 if (str_contains($errorMsg, 'error al conectar con la impresora')) {
                     break;
                 }
-
                 continue;
             }
-
         }
     }
 
