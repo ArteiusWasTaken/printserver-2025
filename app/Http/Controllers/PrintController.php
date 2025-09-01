@@ -4,13 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Services\DropboxService;
 use App\Services\ErrorLoggerService;
+use App\Services\ManifiestoService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Mike42\Escpos\PrintConnectors\FilePrintConnector;
-use Mike42\Escpos\Printer;
-use function PHPUnit\Framework\isEmpty;
+use Throwable;
 
 /**
  *
@@ -225,7 +224,7 @@ class PrintController extends Controller
     {
         $data = json_decode($request->input('data'));
 
-        if (!isset( $data->codigo, $data->descripcion)) {
+        if (!isset($data->codigo, $data->descripcion)) {
             return response()->json([
                 'code' => 400,
                 'message' => 'Faltan datos requeridos: codigo o descripcion.'
@@ -332,7 +331,7 @@ class PrintController extends Controller
                 }
             }
         } elseif ($marketplace->guia) {
-            $url = "https://rest.afainnova.com/logistica/envio/pendiente/documento/{$documentoId}/{$documento->id_marketplace_area}/1?token=" . $request->get('token');
+            $url = "https://rest.afainnova.com/logistica/envio/pendiente/documento/$documentoId/$documento->id_marketplace_area/1?token=" . $request->get('token');
 
             $response = json_decode(file_get_contents($url));
 
@@ -415,10 +414,10 @@ class PrintController extends Controller
                         'PrintController',
                         ['exception' => $e->getMessage(), 'line' => self::logLocation()]
                     );
-                    $outputs[] = 'exception: ' . $e->getMessage(). ' line: ' .self::logLocation();
+                    $outputs[] = 'exception: ' . $e->getMessage() . ' line: ' . self::logLocation();
                     return response()->json([
                         'code' => 200,
-                        'message' => 'NO. '. $ipImpresora,
+                        'message' => 'NO. ' . $ipImpresora,
                         'outputs' => $outputs,
                     ]);
                 }
@@ -431,10 +430,106 @@ class PrintController extends Controller
 
         return response()->json([
             'code' => 200,
-            'message' => 'Guías enviadas a impresión. '. $ipImpresora,
+            'message' => 'Guías enviadas a impresión. ' . $ipImpresora,
             'outputs' => $outputs,
         ]);
     }
 
+    public function manifiestoSalida(Request $request): JsonResponse
+    {
+        $raw = $request->input('data');
+        $data = json_decode($raw);
 
+        $impresion_reimpresion = $request->input('impresion_reimpresion');
+
+        $guias_paqueteria = [];
+        $guias = [];
+
+        $impresora_data = DB::table("impresora")
+            ->where("ip", $data->printer)
+            ->first();
+
+        if (in_array((string)$impresion_reimpresion, ['1', '2'], true)) {
+            $impreso = ((string)$impresion_reimpresion === '1') ? 0 : 1;
+            $guias = DB::table('manifiesto')
+                ->join('paqueteria', 'manifiesto.id_paqueteria', '=', 'paqueteria.id')
+                ->select('manifiesto.id', 'manifiesto.guia', 'paqueteria.paqueteria')
+                ->where('manifiesto.manifiesto', date('dmY'))
+                ->where('manifiesto.salida', 1)
+                ->where('manifiesto.impreso', $impreso)
+                ->where('manifiesto.id_impresora', $impresora_data->id)
+                ->get();
+        }
+
+        foreach ($guias as $guia) {
+            if (strtolower($guia->paqueteria) === strtolower($data->shipping_provider)) {
+                $guias_paqueteria[] = $guia->guia;
+            }
+        }
+
+        if (empty($guias_paqueteria)) {
+            return response()->json([
+                "code" => 404,
+                "message" => "No se encontrarón guias de la paquetería" . " " . self::logVariableLocation()
+            ]);
+        }
+        try {
+            $reimpresion = ((string)$impresion_reimpresion === '2');
+
+            ManifiestoService::impresion(
+                $impresora_data->ip,
+                (string)$data->shipping_provider,
+                $guias_paqueteria,
+                $reimpresion
+            );
+
+            if ((string)$impresion_reimpresion === '1') {
+                foreach ($guias_paqueteria as $guia) {
+                    DB::table('manifiesto')->where(['guia' => $guia])->update(['impreso' => 1]);
+                }
+            }
+
+            return response()->json([
+                "code" => 200,
+                "message" => ((string)$impresion_reimpresion === '2') ? 'Reimpresión' : 'Impresión',
+            ]);
+
+        } catch (Throwable $e) {
+            $errorMsg = $e->getMessage();
+
+            ErrorLoggerService::logger(
+                'Error en manifiesto. Impresora: ' . $impresora_data->ip,
+                'PrintController',
+                ['exception' => $errorMsg, 'line' => self::logLocation()]
+            );
+
+            if (
+                str_contains($errorMsg, 'No route to host') ||
+                str_contains($errorMsg, 'Transport endpoint is not connected') ||
+                str_contains($errorMsg, 'Bad file descriptor') ||
+                str_contains($errorMsg, 'Failed to write')
+            ) {
+                if ((string)$impresion_reimpresion === '1') {
+                    foreach ($guias_paqueteria as $guia) {
+                        DB::table('manifiesto')->where(['guia' => $guia])->update(['impreso' => 1]);
+                    }
+                }
+            }
+
+            return response()->json([
+                "code" => 500,
+                "message" => "No fue posible imprimir el manifiesto de la paquetería $data->shipping_provider.",
+                "error" => $errorMsg,
+            ], 500);
+        }
+    }
+
+    private static function logVariableLocation(): string
+    {
+        $sis = 'BE'; //Front o Back
+        $ini = 'PC'; //Primera letra del Controlador y Letra de la seguna Palabra: Controller, service
+        $fin = 'INT'; //Últimas 3 letras del primer nombre del archivo *comPRAcontroller
+        $trace = debug_backtrace()[0];
+        return ('<br>' . $sis . $ini . $trace['line'] . $fin);
+    }
 }
