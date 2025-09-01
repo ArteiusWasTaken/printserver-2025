@@ -189,6 +189,54 @@ class PrintController extends Controller
         ]);
     }
 
+    public function etiquetasEnsamble(Request $request): JsonResponse
+    {
+        // data viene como JSON en el campo 'data'
+        $data = json_decode($request->input('data'));
+
+        // Validación mínima
+        if (!$data || !isset($data->sku, $data->descripcion, $data->serie)) {
+            return response()->json([
+                'code'    => 400,
+                'message' => 'Faltan datos requeridos: sku, descripcion o serie.'
+            ], 400);
+        }
+
+        // Impresora por defecto (id = 5)
+        $impresora = DB::table('impresora')->where('id', 5)->first();
+        if (!$impresora) {
+            return response()->json([
+                'code'    => 500,
+                'message' => 'No se encontró la impresora por defecto (id=5).'
+            ], 500);
+        }
+
+        // Armar la etiqueta (cantidad=1, extra vacío)
+        $etiqueta = (object)[
+            'codigo'      => $data->sku,            // <- sku
+            'descripcion' => $data->descripcion,
+            'serie'       => $data->serie,
+            'cantidad'    => 1,
+            'extra'       => ''
+        ];
+
+        // Imprimir (reusa tu helper existente)
+        $ok = $this->imprimirEtiqueta($impresora, [$etiqueta]);
+
+        if (!$ok) {
+            return response()->json([
+                'code'    => 500,
+                'message' => 'No se pudo imprimir la etiqueta.'
+            ], 500);
+        }
+
+        return response()->json([
+            'code'    => 200,
+            'message' => 'Etiqueta impresa correctamente.',
+            'serie'   => $data->serie
+        ]);
+    }
+
     private function imprimirEtiqueta($impresora, $etiquetas): bool|string
     {
         foreach ($etiquetas as $etiqueta) {
