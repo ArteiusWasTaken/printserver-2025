@@ -29,6 +29,6 @@ Route::group(['middleware' => [JwtMiddleware::class]], function () {
     });
 
     Route::group(['prefix' => 'manifiesto'], function () {
-        Route::get('/salida', [PrintController::class, 'manifiestoSalida']);
+        Route::post('/salida', [PrintController::class, 'manifiestoSalida']);
     });
 });
