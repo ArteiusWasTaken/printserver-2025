@@ -502,7 +502,7 @@ class PrintController extends Controller
             $guias = DB::table('manifiesto')
                 ->join('paqueteria', 'manifiesto.id_paqueteria', '=', 'paqueteria.id')
                 ->select('manifiesto.id', 'manifiesto.guia', 'paqueteria.paqueteria')
-                ->where('manifiesto.manifiesto', date('dmY'))
+                ->where('manifiesto.manifiesto', '03092025')
                 ->where('manifiesto.salida', 1)
                 ->where('manifiesto.impreso', $impreso)
                 ->where('manifiesto.id_impresora', $impresora_data->id)
