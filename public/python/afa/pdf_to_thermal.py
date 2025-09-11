@@ -4,7 +4,7 @@ from PIL import Image
 import socket
 
 def image_to_zpl(image: Image.Image, dpi=203) -> str:
-    image = image.convert("1")  # Blanco y negro
+    image = image.convert("1")
     width, height = image.size
     bytes_per_row = (width + 7) // 8
     bitmap = bytearray()
@@ -25,8 +25,8 @@ def image_to_zpl(image: Image.Image, dpi=203) -> str:
 
     hex_data = bitmap.hex().upper()
 
-    label_width = 4 * dpi  # 812 puntos (4" x 203 dpi)
-    label_height = 8 * dpi # 1624 puntos (8" x 203 dpi)
+    label_width = 4 * dpi
+    label_height = 8 * dpi
 
     zpl = f"""
 ^XA
@@ -43,27 +43,20 @@ def enviar_a_impresora(zpl, ip, puerto=9100):
         s.sendall(zpl.encode('utf-8'))
 
 def main(pdf_path, zoom, printer_ip):
-    dpi = 203  # DPI estándar Zebra
+    dpi = 203
     images = convert_from_path(pdf_path, dpi=dpi)
     img = images[0]
 
+    # El parámetro zoom ahora controla el recorte de la izquierda
     try:
-        zoom_value = float(zoom)
-        if 0 < zoom_value < 1:
-            # ---- Recorte franja izquierda ----
+        crop_percent = float(zoom)
+        if crop_percent < 1.0:
             w, h = img.size
-            img = img.crop((0, 0, int(w * zoom_value), h))
-        elif zoom_value > 1:
-            # ---- Divide en bloques horizontales, toma el primero y rota ----
-            w, h = img.size
-            guia_height = int(h / zoom_value)
-            img = img.crop((0, 0, w, guia_height))
-            img = img.rotate(90, expand=True)
-        # Si zoom == 1, no recorta nada, solo escala
+            img = img.crop((0, 0, int(w * crop_percent), h))
     except Exception as e:
-        pass  # Si zoom no es válido, no recorta
+        # Si no es un número válido, no recorta nada
+        pass
 
-    # ---- Escalar a 4x8 pulgadas ----
     img = img.resize((4*dpi, 8*dpi), Image.LANCZOS)
 
     zpl = image_to_zpl(img, dpi)
