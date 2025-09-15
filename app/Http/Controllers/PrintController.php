@@ -279,7 +279,7 @@ class PrintController extends Controller
             ]);
         }
 
-        $impresora = DB::table('impresora')->where('id', 5)->first();
+        $impresora = DB::table('impresora')->where('id', $data->impresora)->first();
         if (!$impresora) {
             return response()->json([
                 'code' => 500,
