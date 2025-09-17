@@ -14,9 +14,13 @@ desc = clean_text(str(sys.argv[2]))
 serie = str(sys.argv[3])
 qty = str(sys.argv[4])
 extra = clean_text(str(sys.argv[5]))
+dpi = int(sys.argv[6]) if len(sys.argv) > 6 else 300  # por defecto 300 dpi
 
-# Escala para impresoras de 300 dpi
-DPI_SCALE = 300 / 203
+# Escala según DPI
+if dpi == 203:
+    DPI_SCALE = 1  # nativo 203 dpi
+else:
+    DPI_SCALE = 300 / 203  # escalado para 300 dpi
 
 sku_length = len(sku)
 serie_length = len(serie)

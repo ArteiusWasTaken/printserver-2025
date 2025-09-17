@@ -239,13 +239,16 @@ class PrintController extends Controller
     private function imprimirEtiqueta($impresora, $etiquetas): bool|string
     {
         foreach ($etiquetas as $etiqueta) {
+            $dpi = ($impresora->id == 5) ? '203' : '300';
+
             try {
                 $command = 'python python/label/' . $impresora->tamanio . '/sku_description_serie.py ' .
                     escapeshellarg($etiqueta->codigo) . ' ' .
                     escapeshellarg($etiqueta->descripcion) . ' ' .
                     escapeshellarg($etiqueta->serie) . ' ' .
                     escapeshellarg($etiqueta->cantidad) . ' ' .
-                    escapeshellarg($etiqueta->extra) . ' 2>&1';
+                    escapeshellarg($etiqueta->extra) . ' ' .
+                    $dpi . ' 2>&1';
 
                 $output = trim(shell_exec($command));
 
