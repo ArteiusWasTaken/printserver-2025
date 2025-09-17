@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Route;
 
 Route::group(['prefix' => 'dev'], function () {
     Route::get('usb/{barcode}', [PrintController::class, 'ticketsUsb']);
-    Route::get('me', phpinfo());
 });
 
 Route::group(['middleware' => [JwtMiddleware::class]], function () {
