@@ -1,4 +1,4 @@
-<?php /** @noinspection PhpComposerExtensionStubsInspection */
+<?php
 
 namespace App\Services;
 
@@ -9,6 +9,7 @@ use Httpful\Exception\ConnectionErrorException;
 use Httpful\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class DropboxService
 {
@@ -17,6 +18,7 @@ class DropboxService
     protected mixed $refreshToken;
     protected string $token;
     protected Client $client;
+    protected RemoteVaultService $vault;
 
     public function __construct()
     {
@@ -25,15 +27,22 @@ class DropboxService
         $this->refreshToken = env('DROPBOX_REFRESH_TOKEN');
         $this->token = config('services.dropbox.token');
         $this->client = new Client();
+        $this->vault = app(RemoteVaultService::class);
     }
 
     /**
      * Renueva el access token de Dropbox y lo guarda en DROPBOX_TOKEN del .env
      * @throws ConnectionErrorException
-     * @throws Exception
+     * @throws Exception|GuzzleException
      */
     public function refreshAccessToken()
     {
+        if ($token = $this->vault->getValid($this->clientId)) {
+            self::setEnvValue($token);
+            $this->token = $token;
+            return $token;
+        }
+
         $url = 'https://api.dropbox.com/oauth2/token';
         $body = http_build_query([
             'grant_type' => 'refresh_token',
@@ -51,6 +60,8 @@ class DropboxService
         $data = json_decode($response->raw_body, true);
 
         if (isset($data['access_token'])) {
+            $this->vault->put($this->clientId, $data['access_token']);
+            $this->token = $data['access_token'];
             self::setEnvValue($data['access_token']);
             return $data['access_token'];
         }
@@ -90,6 +101,7 @@ class DropboxService
      */
     public function downloadFile($path): ?string
     {
+        $this->ensureValidToken();
         $url = 'https://content.dropboxapi.com/2/files/download';
 
         $headers = [
@@ -140,6 +152,8 @@ class DropboxService
      */
     public function uploadFile($path, $fileContent, $isBase64 = true)
     {
+        $this->ensureValidToken();
+
         $url = 'https://content.dropboxapi.com/2/files/upload';
 
         $headers = [
@@ -209,6 +223,8 @@ class DropboxService
      */
     private function requestDropbox($url, $body = [], $asJson = false)
     {
+        $this->ensureValidToken();
+
         $headers = [
             'Authorization' => 'Bearer ' . config('keys.dropbox'),
             'Content-Type' => 'application/json',
@@ -250,5 +266,19 @@ class DropboxService
         $fin = 'APP'; //Últimas 3 letras del primer nombre del archivo *comPRAcontroller
         $trace = debug_backtrace()[0];
         return ('<br> Código de Error: ' . $sis . $ini . $trace['line'] . $fin);
+    }
+
+    private function ensureValidToken(): void
+    {
+        try {
+            $validToken = $this->vault->getValid($this->clientId);
+
+            if (!$validToken) {
+                $this->refreshAccessToken();
+            }
+
+        } catch (Throwable $e) {
+            $this->refreshAccessToken();
+        }
     }
 }
