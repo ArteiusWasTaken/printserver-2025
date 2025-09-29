@@ -9,6 +9,8 @@ use Httpful\Exception\ConnectionErrorException;
 use Httpful\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 use Throwable;
 
 class DropboxService
@@ -25,9 +27,26 @@ class DropboxService
         $this->clientId = env('DROPBOX_CLIENT_ID');
         $this->clientSecret = env('DROPBOX_CLIENT_SECRET');
         $this->refreshToken = env('DROPBOX_REFRESH_TOKEN');
-        $this->token = config('services.dropbox.token');
+        // $this->token = config('services.dropbox.token');
         $this->client = new Client();
         $this->vault = app(RemoteVaultService::class);
+    }
+
+    public function getDropboxToken()
+    {
+        $dropbox_token = DB::table("oauth_tokens")->where('provider', 'dropbox')->first();
+
+        if (!$dropbox_token) {
+            throw new \RuntimeException('No hay registro de tokens para Dropbox');
+        }
+
+        if ($dropbox_token->expires_at && $dropbox_token->expires_at->gt(Carbon::now()->addMinutes(5))) {
+            return $dropbox_token->access_token;
+        }
+
+        $token = self::refreshAccessToken();
+
+        return $token;
     }
 
     /**
@@ -37,11 +56,13 @@ class DropboxService
      */
     public function refreshAccessToken()
     {
+        /*
         if ($token = $this->vault->getValid($this->clientId)) {
             self::setEnvValue($token);
             $this->token = $token;
             return $token;
         }
+        */
 
         $url = 'https://api.dropbox.com/oauth2/token';
         $body = http_build_query([
@@ -61,8 +82,18 @@ class DropboxService
 
         if (isset($data['access_token'])) {
             $this->vault->put($this->clientId, $data['access_token']);
+            $expiresIn = isset($data['expires_in']) ? (int)$data['expires_in'] : 4 * 60 * 60;
+
+            /*
             $this->token = $data['access_token'];
             self::setEnvValue($data['access_token']);
+            */
+
+            DB::table("oauth_tokens")->where('provider', 'dropbox')->update([
+                "access_token" => $data['access_token'],
+                "expires_at" => Carbon::now()->addSeconds($expiresIn)
+            ]);
+
             return $data['access_token'];
         }
         throw new Exception('No se pudo renovar el access token de Dropbox');
@@ -102,10 +133,12 @@ class DropboxService
     public function downloadFile($path): ?string
     {
         $this->ensureValidToken();
+        $token = $this->getDropboxToken();
+
         $url = 'https://content.dropboxapi.com/2/files/download';
 
         $headers = [
-            'Authorization' => 'Bearer ' . $this->token,
+            'Authorization' => 'Bearer ' . $token,
             'Dropbox-API-Arg' => json_encode(['path' => $path])
         ];
 
@@ -131,7 +164,7 @@ class DropboxService
                 Log::error($errorMsg);
                 return null;
             }
-        } catch (Exception|GuzzleException $e) {
+        } catch (Exception | GuzzleException $e) {
             Log::error('Dropbox downloadFile error: ' . $e->getMessage());
             return null;
         }
@@ -153,11 +186,12 @@ class DropboxService
     public function uploadFile($path, $fileContent, $isBase64 = true)
     {
         $this->ensureValidToken();
+        $token = $this->getDropboxToken();
 
         $url = 'https://content.dropboxapi.com/2/files/upload';
 
         $headers = [
-            'Authorization' => 'Bearer ' . config('keys.dropbox'),
+            'Authorization' => 'Bearer ' . $token,
             'Dropbox-API-Arg' => json_encode([
                 'path' => $path,
                 'mode' => 'add',
@@ -224,9 +258,10 @@ class DropboxService
     private function requestDropbox($url, $body = [], $asJson = false)
     {
         $this->ensureValidToken();
+        $token = $this->getDropboxToken();
 
         $headers = [
-            'Authorization' => 'Bearer ' . config('keys.dropbox'),
+            'Authorization' => 'Bearer ' . $token,
             'Content-Type' => 'application/json',
         ];
 
@@ -243,19 +278,19 @@ class DropboxService
             if ($status === 200) {
                 return $asJson ? json_decode($res, true) : $res;
             } else {
-                Log::warning('Dropbox request ('.$url.') status: '.$status.' | response: '.$res);
+                Log::warning('Dropbox request (' . $url . ') status: ' . $status . ' | response: ' . $res);
                 sleep(1);
             }
         } catch (Exception $e) {
-            Log::error('Dropbox request error: '.$e->getMessage());
+            Log::error('Dropbox request error: ' . $e->getMessage());
             sleep(1);
         } catch (GuzzleException $e) {
-            Log::error('Dropbox request error: '.$e->getMessage());
+            Log::error('Dropbox request error: ' . $e->getMessage());
             sleep(1);
         }
         return [
             'error' => true,
-            'message' => 'No se pudo conectar con Dropbox ('.$url.')'
+            'message' => 'No se pudo conectar con Dropbox (' . $url . ')'
         ];
     }
 
@@ -276,7 +311,6 @@ class DropboxService
             if (!$validToken) {
                 $this->refreshAccessToken();
             }
-
         } catch (Throwable $e) {
             $this->refreshAccessToken();
         }
