@@ -40,7 +40,9 @@ class DropboxService
             throw new \RuntimeException('No hay registro de tokens para Dropbox');
         }
 
-        if ($dropbox_token->expires_at && $dropbox_token->expires_at->gt(Carbon::now()->addMinutes(5))) {
+        $expiresAt = $dropbox_token->expires_at ? Carbon::parse($dropbox_token->expires_at) : null;
+
+        if ($expiresAt && $expiresAt->gt(Carbon::now()->addMinutes(5))) {
             return $dropbox_token->access_token;
         }
 
@@ -48,6 +50,7 @@ class DropboxService
 
         return $token;
     }
+
 
     /**
      * Renueva el access token de Dropbox y lo guarda en DROPBOX_TOKEN del .env
