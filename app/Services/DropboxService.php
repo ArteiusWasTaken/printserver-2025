@@ -49,6 +49,7 @@ class DropboxService
         return $token;
     }
 
+
     /**
      * Renueva el access token de Dropbox y lo guarda en DROPBOX_TOKEN del .env
      * @throws ConnectionErrorException
