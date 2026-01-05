@@ -31,7 +31,7 @@ class PickingService
             ->where('documento.autorizado', 1)
             ->where('documento.problema', 0)
             ->where('documento.picking', 0)
-            ->whereYear('documento.created_at', date('Y'))
+            ->whereIn(DB::raw('YEAR(documento.created_at)'), [date('Y'), date('Y') - 1])
             ->groupBy('impresora.servidor')
             ->pluck('impresora.servidor')
             ->toArray();
@@ -49,7 +49,7 @@ class PickingService
                     ->where('documento.problema', 0)
                     ->where('documento.picking', 0)
                     ->where('documento.picking_by', 0)
-                    ->whereYear('documento.created_at', date('Y'))
+                    ->whereIn(DB::raw('YEAR(documento.created_at)'), [date('Y'), date('Y') - 1])
                     ->where('impresora.servidor', $servidor)
                     ->where(function ($query) {
                         $query->where('marketplace_area.publico', '!=', 0)
