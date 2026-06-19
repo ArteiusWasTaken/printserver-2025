@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\DropboxService;
 use App\Services\ErrorLoggerService;
 use App\Services\ManifiestoService;
+use App\Services\PickingService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,15 @@ use Throwable;
  */
 class PrintController extends Controller
 {
+    public function pickingDocumento(Request $request, PickingService $pickingService): JsonResponse
+    {
+        $auth = json_decode($request->auth ?? '{}');
+        $usuarioId = (int)($request->input('usuario') ?: ($auth->id ?? 1));
+        $documentoId = (int)$request->input('documento');
+
+        return $pickingService->printDocumento($documentoId, $usuarioId);
+    }
+
     /**
      * @param Request $request
      * @return JsonResponse

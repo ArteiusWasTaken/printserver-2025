@@ -137,6 +137,76 @@ class PickingService
     }
 
     /**
+     * Imprime el picking de un solo documento solicitado desde CRM.
+     *
+     * @param int $documentoId
+     * @param int $usuarioId
+     * @return JsonResponse
+     */
+    public function printDocumento(int $documentoId, int $usuarioId = 1): JsonResponse
+    {
+        if ($documentoId <= 0) {
+            return response()->json([
+                'code' => 500,
+                'message' => 'Documento invalido.'
+            ]);
+        }
+
+        $validacion = $this->validarDocumentoParaPicking($documentoId);
+        if ($validacion['code'] !== 200) {
+            return response()->json($validacion);
+        }
+
+        $documento = $validacion['documento'];
+        $productos = $this->productosDocumento($documentoId);
+
+        if (empty($productos)) {
+            $this->marcarDocumentoSinProductos($documentoId);
+
+            return response()->json([
+                'code' => 500,
+                'message' => 'El documento no contiene productos; se regreso a fase pedido.'
+            ]);
+        }
+
+        try {
+            $seguimientos = $this->seguimientosDocumento($documentoId);
+
+            $this->imprimirDocumentoPicking($documento, $productos, $seguimientos);
+
+            DB::table('documento')->where('id', $documentoId)->update([
+                'picking' => 1,
+                'picking_by' => $usuarioId,
+                'picking_date' => date('Y-m-d H:i:s')
+            ]);
+
+            return response()->json([
+                'code' => 200,
+                'message' => 'Picking impreso correctamente.',
+                'documento' => $documentoId
+            ]);
+        } catch (Exception $e) {
+            DB::table('documento')->where('id', $documentoId)->update([
+                'picking' => 0
+            ]);
+
+            ErrorLoggerService::logger(
+                'No fue posible imprimir el picking del documento ' . $documentoId,
+                'PrintController',
+                [
+                    'exception' => $e->getMessage(),
+                    'line' => self::logLocation()
+                ]
+            );
+
+            return response()->json([
+                'code' => 500,
+                'message' => 'No fue posible imprimir el picking: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * @param $documento
      * @return void
      */
@@ -164,6 +234,275 @@ class PickingService
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * @param int $documentoId
+     * @return array
+     */
+    private function validarDocumentoParaPicking(int $documentoId): array
+    {
+        $documento = DB::table('documento')
+            ->join('empresa_almacen', 'documento.id_almacen_principal_empresa', '=', 'empresa_almacen.id')
+            ->join('empresa', 'empresa_almacen.id_empresa', '=', 'empresa.id')
+            ->join('almacen', 'empresa_almacen.id_almacen', '=', 'almacen.id')
+            ->join('marketplace_area', 'documento.id_marketplace_area', '=', 'marketplace_area.id')
+            ->join('area', 'marketplace_area.id_area', '=', 'area.id')
+            ->join('marketplace', 'marketplace_area.id_marketplace', '=', 'marketplace.id')
+            ->leftJoin('impresora', 'empresa_almacen.id_impresora_picking', '=', 'impresora.id')
+            ->where('documento.id', $documentoId)
+            ->select(
+                'area.area',
+                'documento.id',
+                'documento.status',
+                'documento.id_tipo',
+                'documento.id_fase',
+                'documento.autorizado',
+                'documento.problema',
+                'documento.picking',
+                'documento.picking_by',
+                'documento.packing_by',
+                'documento.pagado',
+                'documento.id_periodo',
+                'documento.no_venta',
+                'documento.comentario',
+                'marketplace.marketplace',
+                'marketplace_area.publico',
+                'empresa.empresa',
+                'almacen.almacen',
+                'impresora.ip',
+                'impresora.status AS impresora_status',
+                'empresa_almacen.id_impresora_picking'
+            )
+            ->first();
+
+        if (empty($documento)) {
+            return [
+                'code' => 500,
+                'message' => 'No se encontro el documento solicitado.'
+            ];
+        }
+
+        if ((int)$documento->status !== 1 || (int)$documento->id_tipo !== 2) {
+            return [
+                'code' => 500,
+                'message' => 'El documento no es un pedido activo.'
+            ];
+        }
+
+        if ((int)$documento->id_fase !== 3) {
+            return [
+                'code' => 500,
+                'message' => 'El documento no esta en pendiente de remision (fase 3).'
+            ];
+        }
+
+        if ((int)$documento->autorizado !== 1) {
+            return [
+                'code' => 500,
+                'message' => 'El documento no esta autorizado para surtido.'
+            ];
+        }
+
+        if ((int)$documento->problema !== 0) {
+            return [
+                'code' => 500,
+                'message' => 'El documento esta marcado con problema y no se puede imprimir el picking.'
+            ];
+        }
+
+        if ((int)$documento->picking !== 0) {
+            return [
+                'code' => 500,
+                'message' => 'El picking del documento ya fue impreso.'
+            ];
+        }
+
+        if ((int)$documento->picking_by !== 0) {
+            return [
+                'code' => 500,
+                'message' => 'El documento ya esta asignado a picking.'
+            ];
+        }
+
+        if ((int)$documento->packing_by !== 0) {
+            return [
+                'code' => 500,
+                'message' => 'El documento ya esta asignado a packing.'
+            ];
+        }
+
+        if ((int)$documento->publico === 0 && (int)$documento->pagado === 0 && (int)$documento->id_periodo === 1) {
+            return [
+                'code' => 500,
+                'message' => 'El documento privado no esta pagado y no puede imprimir picking.'
+            ];
+        }
+
+        if (empty($documento->id_impresora_picking) || empty($documento->ip)) {
+            return [
+                'code' => 500,
+                'message' => 'El almacen del documento no tiene impresora de picking configurada.'
+            ];
+        }
+
+        if ((int)$documento->impresora_status !== 1) {
+            return [
+                'code' => 500,
+                'message' => 'La impresora de picking configurada esta inactiva.'
+            ];
+        }
+
+        return [
+            'code' => 200,
+            'documento' => $documento
+        ];
+    }
+
+    /**
+     * @param int $documentoId
+     * @return array
+     */
+    private function productosDocumento(int $documentoId): array
+    {
+        return DB::table('movimiento')
+            ->join('modelo', 'movimiento.id_modelo', '=', 'modelo.id')
+            ->where('movimiento.id_documento', $documentoId)
+            ->select(
+                'modelo.sku',
+                'modelo.descripcion',
+                'movimiento.cantidad'
+            )
+            ->get()
+            ->toArray();
+    }
+
+    /**
+     * @param int $documentoId
+     * @return array
+     */
+    private function seguimientosDocumento(int $documentoId): array
+    {
+        $seguimiento = [];
+
+        $seguimientos = DB::table('seguimiento')
+            ->join('usuario', 'seguimiento.id_usuario', '=', 'usuario.id')
+            ->where('seguimiento.id_documento', $documentoId)
+            ->where('seguimiento.id_usuario', '!=', 1)
+            ->select('seguimiento.*', 'usuario.nombre')
+            ->orderBy('seguimiento.created_at', 'desc')
+            ->limit(2)
+            ->get()
+            ->toArray();
+
+        foreach ($seguimientos as $seguimientoo) {
+            $seguimientoData = new stdClass();
+            $re = '/\b(\w)\S*\s*/m';
+            $subst = '$1';
+            $seguimientoData->usuario = preg_replace($re, $subst, $seguimientoo->nombre)
+                . ' (' . $seguimientoo->created_at . ')';
+            $seguimientoData->seguimiento = strip_tags($seguimientoo->seguimiento);
+
+            $seguimiento[] = $seguimientoData;
+        }
+
+        return $seguimiento;
+    }
+
+    /**
+     * @param int $documentoId
+     * @return void
+     */
+    private function marcarDocumentoSinProductos(int $documentoId): void
+    {
+        DB::table('seguimiento')->insert([
+            'id_documento' => $documentoId,
+            'id_usuario' => 1,
+            'seguimiento' => 'PICKING: El pedido ha sido mandado a fase PEDIDO debido a que actualmente no contiene productos.'
+        ]);
+
+        DB::table('documento')->where('id', $documentoId)->update([
+            'id_fase' => 1,
+        ]);
+    }
+
+    /**
+     * @param object $info
+     * @param array $productos
+     * @param array $seguimiento
+     * @return void
+     * @throws Exception
+     */
+    private function imprimirDocumentoPicking(object $info, array $productos, array $seguimiento): void
+    {
+        $printer = null;
+
+        try {
+            $connector = new NetworkPrintConnector($info->ip, 9100);
+            $printer = new Printer($connector);
+
+            $date = (new DateTime('now', new DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
+
+            $printer->setJustification(Printer::JUSTIFY_CENTER);
+            $printer->feed(2);
+            $printer->setTextSize(2, 2);
+            $printer->text($info->id . "\n");
+            $printer->setTextSize(1, 1);
+            $printer->barcode((string)$info->id);
+            $printer->feed();
+
+            $printer->setJustification();
+            $printer->text($info->area . ' / ' . $info->marketplace . "\n");
+            $printer->text($info->empresa . ' / ' . $info->almacen . "\n\n");
+            $printer->text('No. de venta / ' . $info->no_venta . "\n\n");
+            if ($info->marketplace === 'MERCADOLIBRE') {
+                $printer->text('No. de pack / ' . $info->comentario . "\n\n");
+            }
+
+            $printer->text("Productos\n");
+            $printer->text(str_repeat('-', 48) . "\n");
+
+            foreach ($productos as $producto) {
+                $printer->text($producto->sku . "\n");
+                $printer->text($producto->descripcion . "\n");
+
+                $printer->setTextSize(2, 2);
+                $printer->text($producto->cantidad . "\n");
+                $printer->setTextSize(1, 1);
+
+                $printer->text(str_repeat('-', 48) . "\n");
+            }
+
+            $printer->feed(2);
+            $printer->text("Ultimo seguimiento\n");
+            $printer->text(str_repeat('-', 48) . "\n");
+            if (empty($seguimiento)) {
+                $printer->text('Sin Seguimientos' . "\n");
+                $printer->text(str_repeat('-', 48) . "\n");
+            } else {
+                foreach ($seguimiento as $s) {
+                    $printer->text($s->usuario . "\n");
+                    $printer->text($s->seguimiento . "\n");
+                    $printer->text(str_repeat('-', 48) . "\n");
+                }
+            }
+
+            $printer->feed(2);
+            $printer->setJustification(Printer::JUSTIFY_CENTER);
+            $printer->text($date . "\n\n");
+
+            $printer->cut();
+            $printer->close();
+        } catch (Exception $e) {
+            if ($printer) {
+                try {
+                    $printer->close();
+                } catch (Exception $closeException) {
+                }
+            }
+
+            throw $e;
         }
     }
 

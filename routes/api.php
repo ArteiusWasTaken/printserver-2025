@@ -28,9 +28,12 @@ Route::group(['middleware' => [JwtMiddleware::class]], function () {
         Route::get('/print/{documentoId}/{impresoraNombre}', [PrintController::class, 'print']);
     });
 
+    Route::group(['prefix' => 'picking'], function () {
+        Route::post('/documento', [PrintController::class, 'pickingDocumento']);
+    });
+
     Route::group(['prefix' => 'manifiesto'], function () {
         Route::post('/salida', [PrintController::class, 'manifiestoSalida']);
     });
 });
-
 
