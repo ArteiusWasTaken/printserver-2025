@@ -187,7 +187,9 @@ class PickingService
             ]);
         } catch (Exception $e) {
             DB::table('documento')->where('id', $documentoId)->update([
-                'picking' => 0
+                'picking' => $documento->picking,
+                'picking_by' => $documento->picking_by,
+                'picking_date' => $documento->picking_date
             ]);
 
             ErrorLoggerService::logger(
@@ -262,6 +264,7 @@ class PickingService
                 'documento.problema',
                 'documento.picking',
                 'documento.picking_by',
+                'documento.picking_date',
                 'documento.packing_by',
                 'documento.pagado',
                 'documento.id_periodo',
@@ -309,20 +312,6 @@ class PickingService
             return [
                 'code' => 500,
                 'message' => 'El documento esta marcado con problema y no se puede imprimir el picking.'
-            ];
-        }
-
-        if ((int)$documento->picking !== 0) {
-            return [
-                'code' => 500,
-                'message' => 'El picking del documento ya fue impreso.'
-            ];
-        }
-
-        if ((int)$documento->picking_by !== 0) {
-            return [
-                'code' => 500,
-                'message' => 'El documento ya esta asignado a picking.'
             ];
         }
 
